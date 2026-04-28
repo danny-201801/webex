@@ -182,7 +182,8 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
     <h3>⬇️ 백업 방식 선택</h3>
     <p style="margin:8px 0 16px;color:#666;font-size:13px;">이전 백업 파일을 불러오면 변경된 스페이스만 업데이트합니다.</p>
     <div class="modal-btns" style="flex-direction:column;gap:10px;">
-      <button class="btn btn-primary" onclick="pickPrevBackup()" style="width:100%">📂 이전 백업 파일 불러와서 증분 업데이트</button>
+      <button class="btn btn-primary" onclick="pickPrevBackup(false)" style="width:100%">📂 증분 업데이트 (JSON)</button>
+      <button class="btn btn-primary" onclick="pickPrevBackup(true)" style="width:100%;background:#1a5c2a;">📦 증분 업데이트 + 첨부파일 (ZIP)</button>
       <button class="btn btn-outline" onclick="startBackup(null, false)" style="width:100%">처음부터 전체 백업 (JSON)</button>
       <button class="btn btn-outline" onclick="startBackup(null, true)" style="width:100%;border-color:#3fb950;color:#3fb950;">📦 처음부터 전체 백업 + 첨부파일 (ZIP)</button>
       <button class="btn btn-red" onclick="document.getElementById('backupStartModal').classList.add('hidden')" style="width:100%">취소</button>
@@ -518,7 +519,9 @@ async function loadMore(roomId) {
 
 // ── 전체 백업 ─────────────────────────────────────────────────────
 
-function pickPrevBackup() {
+let _pickIncludeFiles = false;
+function pickPrevBackup(includeFiles) {
+  _pickIncludeFiles = includeFiles;
   document.getElementById('prevBackupInput').click();
 }
 
@@ -531,7 +534,7 @@ function onPrevBackupSelected(e) {
       const prev = JSON.parse(ev.target.result);
       document.getElementById('backupStartModal').classList.add('hidden');
       e.target.value = '';
-      startBackup(prev, false);
+      startBackup(prev, _pickIncludeFiles);
     } catch {
       alert('백업 파일을 읽을 수 없습니다.');
     }
