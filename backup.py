@@ -205,22 +205,31 @@ def download_files(token, messages, space_id):
             # 이미 다운로드된 파일은 스킵
             if local_paths[idx] and (BACKUP_DIR / local_paths[idx]).exists():
                 continue
+            fname = f"file_{idx}"
             try:
-                req = Request(file_url, headers={"Authorization": f"Bearer {token}"})
-                with urlopen(req, timeout=60) as resp:
-                    fname = _get_filename(resp, file_url, idx)
-                    # 파일명 중복 방지: msg_id 앞에 붙이기
-                    safe_id = msg["id"][-8:]
-                    save_name = f"{safe_id}_{fname}"
-                    space_dir.mkdir(parents=True, exist_ok=True)
-                    save_path = space_dir / save_name
-                    save_path.write_bytes(resp.read())
-                rel_path = str(save_path.relative_to(BACKUP_DIR)).replace("\\", "/")
-                local_paths[idx] = rel_path
-                updated = True
-                downloaded += 1
+                for attempt in range(3):
+                    try:
+                        req = Request(file_url, headers={"Authorization": f"Bearer {token}"})
+                        with urlopen(req, timeout=180) as resp:
+                            fname = _get_filename(resp, file_url, idx)
+                            safe_id = msg["id"][-8:]
+                            save_name = f"{safe_id}_{fname}"
+                            space_dir.mkdir(parents=True, exist_ok=True)
+                            save_path = space_dir / save_name
+                            save_path.write_bytes(resp.read())
+                        rel_path = str(save_path.relative_to(BACKUP_DIR)).replace("\\", "/")
+                        local_paths[idx] = rel_path
+                        updated = True
+                        downloaded += 1
+                        break
+                    except Exception as e:
+                        if attempt < 2:
+                            log(f"    ⏳ 파일 재시도 ({attempt+1}/3) ({fname}): {e}")
+                            time.sleep(5)
+                        else:
+                            raise
             except Exception as e:
-                log(f"    ⚠️  파일 다운로드 실패 ({fname if 'fname' in dir() else idx}): {e}")
+                log(f"    ⚠️  파일 다운로드 실패 ({fname}): {e}")
         if updated:
             msg["localFiles"] = local_paths
     return downloaded
