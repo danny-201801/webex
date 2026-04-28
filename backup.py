@@ -11,6 +11,14 @@ from urllib.error import HTTPError
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timezone
 
+# PyInstaller 번들 실행 시 macOS SSL 인증서 경로 지정
+if getattr(sys, 'frozen', False):
+    for _ca in ['/etc/ssl/cert.pem', '/usr/local/etc/openssl/cert.pem']:
+        if os.path.exists(_ca):
+            os.environ.setdefault('SSL_CERT_FILE', _ca)
+            os.environ.setdefault('REQUESTS_CA_BUNDLE', _ca)
+            break
+
 # ── OAuth 설정 (Integration 등록 후 채워넣기) ──────────────────────
 CLIENT_ID     = "Cd4487bf7672af986eba5ea41653f415b2f7addc435d5b5f944cb65a9084484eb"
 CLIENT_SECRET = "d41e3d7db6acefe75b9ee5c73c29d3fc2bc50fff9f9d4e8e2ac685b0e7971916"
