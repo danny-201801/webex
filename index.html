@@ -89,6 +89,11 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
 .msg-group.me .msg-time { text-align: right; }
 .attach-tag { font-size: 11px; color: #8b949e; margin-top: 3px; padding: 0 4px; }
 .msg-group.me .attach-tag { text-align: right; }
+.attach-list { margin-top: 5px; display: flex; flex-direction: column; gap: 3px; }
+.attach-item { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.attach-name { color: #8b949e; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-saved { color: #3fb950; font-size: 11px; }
+.attach-notsaved { color: #f0883e; font-size: 11px; }
 .thread-wrap { margin-top: 4px; padding-left: 10px; border-left: 2px solid #30363d; display: flex; flex-direction: column; gap: 3px; }
 .msg-group.me .thread-wrap { padding-left: 0; padding-right: 10px; border-left: none; border-right: 2px solid #30363d; align-items: flex-end; }
 .load-more-btn { margin: 0 auto 12px; padding: 6px 18px; border-radius: 8px; border: 1px solid #30363d; background: transparent; color: #8b949e; font-size: 12px; cursor: pointer; }
@@ -398,7 +403,7 @@ function renderMsgGroup(msg, replies) {
   let html = `<div class="msg-group ${side}">`;
   if (!isMe) html += `<div class="msg-sender">${esc(name)}</div>`;
   html += `<div class="bubble">${content}</div>`;
-  if (msg.files?.length) html += `<div class="attach-tag">📎 첨부파일 ${msg.files.length}개</div>`;
+  if (msg.files?.length) html += renderAttachments(msg);
   html += `<div class="msg-time">${fmtTime(msg.created)}</div>`;
   if (replies.length) {
     html += `<div class="thread-wrap">`;
@@ -419,6 +424,34 @@ function renderMsgGroup(msg, replies) {
 function renderContent(msg) {
   if (msg.html) return sanitizeHtml(msg.html);
   return esc(msg.text||'').replace(/\n/g,'<br>');
+}
+
+function renderAttachments(msg) {
+  const urls   = msg.files      || [];
+  const locals = msg.localFiles || [];
+  const ext = f => (f||'').split('.').pop().toLowerCase();
+  const imgExts = new Set(['jpg','jpeg','png','gif','webp','bmp','svg']);
+
+  let html = '<div class="attach-list">';
+  for (let i = 0; i < urls.length; i++) {
+    const local = locals[i];
+    const name  = local ? local.split('/').pop() : `첨부파일 ${i+1}`;
+    const isImg = local && imgExts.has(ext(local));
+
+    if (isImg && local) {
+      // 로컬 백업 이미지: 오프라인 모드에서 표시 불가 (경로 안내)
+      html += `<div class="attach-item">🖼️ <span class="attach-name">${esc(name)}</span>
+               <span class="attach-saved">✅ 저장됨</span></div>`;
+    } else if (local) {
+      html += `<div class="attach-item">📎 <span class="attach-name">${esc(name)}</span>
+               <span class="attach-saved">✅ 저장됨</span></div>`;
+    } else {
+      html += `<div class="attach-item">📎 <span class="attach-name">첨부파일 ${i+1}</span>
+               <span class="attach-notsaved">⚠️ 미저장</span></div>`;
+    }
+  }
+  html += '</div>';
+  return html;
 }
 
 function sanitizeHtml(html) {
