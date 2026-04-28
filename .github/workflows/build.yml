@@ -79,23 +79,24 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: "Webex Backup ${{ github.ref_name }}"
-          body: |
-            ## 다운로드
-            | OS | 시작 | 중지 |
-            |----|------|------|
-            | Mac | `webex_backup_시작` | `webex_backup_중지` |
-            | Windows | `webex_backup_시작.exe` | `webex_backup_중지.exe` |
+      - name: Create Release and Upload Assets
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --title "Webex Backup ${{ github.ref_name }}" \
+            --notes "## 다운로드
+          | OS | 시작 | 중지 |
+          |----|------|------|
+          | Mac | \`webex_backup_시작\` | \`webex_backup_중지\` |
+          | Windows | \`webex_backup_시작.exe\` | \`webex_backup_중지.exe\` |
 
-            ## 사용법
-            1. OS에 맞는 파일 다운로드
-            2. `webex_backup_시작` 더블클릭 → Webex 로그인 → 자동 백업 설정
-            3. 중지하려면 `webex_backup_중지` 더블클릭
-          files: |
-            artifacts/mac-executables/webex_backup_시작
-            artifacts/mac-executables/webex_backup_중지
-            artifacts/windows-executables/webex_backup_시작.exe
+          ## 사용법
+          1. OS에 맞는 파일 다운로드
+          2. \`webex_backup_시작\` 더블클릭 → Webex 로그인 → 자동 백업 설정
+          3. 중지하려면 \`webex_backup_중지\` 더블클릭" \
+            artifacts/mac-executables/webex_backup_시작 \
+            artifacts/mac-executables/webex_backup_중지 \
+            artifacts/windows-executables/webex_backup_시작.exe \
             artifacts/windows-executables/webex_backup_중지.exe
+        env:
+          GH_TOKEN: ${{ github.token }}
