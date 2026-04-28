@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Webex Viewer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -182,7 +183,8 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
     <p style="margin:8px 0 16px;color:#666;font-size:13px;">이전 백업 파일을 불러오면 변경된 스페이스만 업데이트합니다.</p>
     <div class="modal-btns" style="flex-direction:column;gap:10px;">
       <button class="btn btn-primary" onclick="pickPrevBackup()" style="width:100%">📂 이전 백업 파일 불러와서 증분 업데이트</button>
-      <button class="btn btn-outline" onclick="startBackup(null)" style="width:100%">처음부터 전체 백업</button>
+      <button class="btn btn-outline" onclick="startBackup(null, false)" style="width:100%">처음부터 전체 백업 (JSON)</button>
+      <button class="btn btn-outline" onclick="startBackup(null, true)" style="width:100%;border-color:#3fb950;color:#3fb950;">📦 처음부터 전체 백업 + 첨부파일 (ZIP)</button>
       <button class="btn btn-red" onclick="document.getElementById('backupStartModal').classList.add('hidden')" style="width:100%">취소</button>
     </div>
     <input type="file" id="prevBackupInput" accept=".json" style="display:none" onchange="onPrevBackupSelected(event)">
@@ -529,7 +531,7 @@ function onPrevBackupSelected(e) {
       const prev = JSON.parse(ev.target.result);
       document.getElementById('backupStartModal').classList.add('hidden');
       e.target.value = '';
-      startBackup(prev);
+      startBackup(prev, false);
     } catch {
       alert('백업 파일을 읽을 수 없습니다.');
     }
@@ -537,7 +539,7 @@ function onPrevBackupSelected(e) {
   reader.readAsText(file);
 }
 
-async function startBackup(prevBackup) {
+async function startBackup(prevBackup, includeFiles) {
   backupCancelled = false;
   document.getElementById('backupStartModal').classList.add('hidden');
   document.getElementById('backupModal').classList.remove('hidden');
@@ -623,9 +625,63 @@ async function startBackup(prevBackup) {
     }
 
     if (!backupCancelled) {
-      setProgress(100, '완료! 파일 저장 중...', '');
       const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
-      downloadJson(`webex_backup_${ts}.json`, backup);
+
+      if (includeFiles) {
+        // ZIP 모드: 첨부파일 다운로드 후 묶기
+        setProgress(100, '첨부파일 다운로드 중...', '');
+        const zip = new JSZip();
+        const filesFolder = zip.folder('files');
+        let fileTotal = 0, fileDone = 0;
+
+        // 전체 파일 수 집계
+        for (const sp of backup.spaces)
+          for (const m of sp.messages||[])
+            fileTotal += (m.files||[]).length;
+
+        for (const sp of backup.spaces) {
+          if (backupCancelled) break;
+          const spaceFolder = filesFolder.folder(sp.id);
+          for (const m of sp.messages||[]) {
+            if (backupCancelled) break;
+            const urls = m.files || [];
+            if (!urls.length) continue;
+            const localPaths = [];
+            for (let i = 0; i < urls.length; i++) {
+              fileDone++;
+              setProgress(100, `첨부파일 다운로드 중... (${fileDone}/${fileTotal})`, sp.title||'');
+              try {
+                const resp = await fetch(urls[i], { headers: { Authorization: `Bearer ${token}` } });
+                if (!resp.ok) { localPaths.push(null); continue; }
+                const cd = resp.headers.get('Content-Disposition') || '';
+                let fname = '';
+                const m5 = cd.match(/filename\*=UTF-8''([^;]+)/i);
+                if (m5) fname = decodeURIComponent(m5[1]);
+                if (!fname) { const m6 = cd.match(/filename="([^"]+)"/); if (m6) fname = m6[1]; }
+                if (!fname) fname = urls[i].split('/').pop().split('?')[0] || `file_${i}`;
+                const safeName = `${m.id.slice(-8)}_${fname}`;
+                const buf = await resp.arrayBuffer();
+                spaceFolder.file(safeName, buf);
+                localPaths.push(`files/${sp.id}/${safeName}`);
+              } catch { localPaths.push(null); }
+            }
+            if (localPaths.some(p=>p)) m.localFiles = localPaths;
+          }
+        }
+
+        setProgress(100, 'ZIP 생성 중...', '');
+        zip.file('backup.json', JSON.stringify(backup));
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `webex_backup_${ts}.zip`;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+      } else {
+        setProgress(100, '완료! 파일 저장 중...', '');
+        downloadJson(`webex_backup_${ts}.json`, backup);
+      }
+
       setTimeout(() => document.getElementById('backupModal').classList.add('hidden'), 1500);
     } else {
       document.getElementById('backupModal').classList.add('hidden');
