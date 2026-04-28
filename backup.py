@@ -171,15 +171,14 @@ FILES_DIR = BACKUP_DIR / "files"
 
 def _get_filename(resp, url, idx):
     """Content-Disposition 헤더에서 파일명 추출, 없으면 URL 기반"""
+    from urllib.parse import unquote
     cd = resp.headers.get("Content-Disposition", "")
     if "filename*=" in cd:
-        # RFC 5987 인코딩 (예: filename*=UTF-8''%ED%8C%8C%EC%9D%BC.pdf)
         try:
-            import urllib.parse
             part = cd.split("filename*=")[1].split(";")[0].strip()
             if "''" in part:
                 part = part.split("''", 1)[1]
-            return urllib.parse.unquote(part)
+            return unquote(part)
         except:
             pass
     if 'filename="' in cd:
@@ -187,13 +186,32 @@ def _get_filename(resp, url, idx):
             return cd.split('filename="')[1].split('"')[0]
         except:
             pass
-    # URL 마지막 세그먼트
-    seg = url.rstrip("/").split("/")[-1].split("?")[0]
+    seg = unquote(url.rstrip("/").split("/")[-1].split("?")[0])
     return seg if seg else f"file_{idx}"
 
-def download_files(token, messages, space_id):
+def _safe_name(name):
+    """파일/폴더명에 사용 불가한 문자 제거"""
+    import re
+    name = re.sub(r'[\\/:*?"<>|]', '_', name).strip('. ')
+    return name[:100] or "unknown"
+
+def _unique_path(folder, fname):
+    """같은 이름 파일이 있으면 (2), (3) ... 붙여서 중복 방지"""
+    p = folder / fname
+    if not p.exists():
+        return p
+    stem, suffix = Path(fname).stem, Path(fname).suffix
+    i = 2
+    while True:
+        p = folder / f"{stem} ({i}){suffix}"
+        if not p.exists():
+            return p
+        i += 1
+
+def download_files(token, messages, space_id, space_title=""):
     """메시지 목록에서 첨부파일을 다운로드하고 localFiles 경로를 기록"""
-    space_dir = FILES_DIR / space_id
+    dir_name = _safe_name(space_title) if space_title else space_id
+    space_dir = FILES_DIR / dir_name
     downloaded = 0
     for msg in messages:
         file_urls = msg.get("files", [])
@@ -212,11 +230,9 @@ def download_files(token, messages, space_id):
                         req = Request(file_url, headers={"Authorization": f"Bearer {token}"})
                         # timeout=60: 연결/청크 단위 타임아웃 (전체 파일 크기 무관)
                         with urlopen(req, timeout=60) as resp:
-                            fname = _get_filename(resp, file_url, idx)
-                            safe_id = msg["id"][-8:]
-                            save_name = f"{safe_id}_{fname}"
+                            fname = _safe_name(_get_filename(resp, file_url, idx))
                             space_dir.mkdir(parents=True, exist_ok=True)
-                            save_path = space_dir / save_name
+                            save_path = _unique_path(space_dir, fname)
                             # 스트리밍으로 저장 (대용량 파일도 메모리 부담 없음)
                             with open(save_path, 'wb') as f:
                                 while True:
@@ -340,7 +356,7 @@ def run_backup():
             all_msgs = spaces_map[sid]["messages"]
             has_files = sum(1 for m in all_msgs if m.get("files"))
             if has_files:
-                n = download_files(token, all_msgs, sid)
+                n = download_files(token, all_msgs, sid, title)
                 if n:
                     log(f"    📎 파일 {n}개 다운로드")
 
