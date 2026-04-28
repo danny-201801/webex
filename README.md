@@ -1,3 +1,7 @@
+맥에서 실행시 터미널에서 아래 명령 한번 입력 후 나중엔 더블클릭하면 됨
+xattr -cr ~/Downloads/webex_backup_start
+
+
 ## What this project does
 
 Webex 대화 아카이빙 도구. 두 가지 독립적인 방식으로 동작한다:
