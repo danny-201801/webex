@@ -180,7 +180,8 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
 </div>
 
 <script>
-const API = '/api';
+// localhost면 server.py 프록시 사용, 그 외(GitHub Pages 등)는 직접 호출
+const API = location.hostname === 'localhost' ? '/api' : 'https://webexapis.com/v1';
 let token = '', myId = '', myName = '';
 let allSpaces = [], filtered = [];
 let peopleCache = {};
