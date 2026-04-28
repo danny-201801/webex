@@ -79,6 +79,9 @@ jobs:
         with:
           path: artifacts
 
+      - name: List artifacts
+        run: find artifacts -type f | sort
+
       - name: Create Release and Upload Assets
         run: |
           gh release create "${{ github.ref_name }}" \
