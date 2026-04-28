@@ -158,6 +158,65 @@ def api_get(token, endpoint, params={}):
             else:
                 raise
 
+# ── 첨부파일 다운로드 ─────────────────────────────────────────────
+FILES_DIR = BACKUP_DIR / "files"
+
+def _get_filename(resp, url, idx):
+    """Content-Disposition 헤더에서 파일명 추출, 없으면 URL 기반"""
+    cd = resp.headers.get("Content-Disposition", "")
+    if "filename*=" in cd:
+        # RFC 5987 인코딩 (예: filename*=UTF-8''%ED%8C%8C%EC%9D%BC.pdf)
+        try:
+            import urllib.parse
+            part = cd.split("filename*=")[1].split(";")[0].strip()
+            if "''" in part:
+                part = part.split("''", 1)[1]
+            return urllib.parse.unquote(part)
+        except:
+            pass
+    if 'filename="' in cd:
+        try:
+            return cd.split('filename="')[1].split('"')[0]
+        except:
+            pass
+    # URL 마지막 세그먼트
+    seg = url.rstrip("/").split("/")[-1].split("?")[0]
+    return seg if seg else f"file_{idx}"
+
+def download_files(token, messages, space_id):
+    """메시지 목록에서 첨부파일을 다운로드하고 localFiles 경로를 기록"""
+    space_dir = FILES_DIR / space_id
+    downloaded = 0
+    for msg in messages:
+        file_urls = msg.get("files", [])
+        if not file_urls:
+            continue
+        local_paths = msg.get("localFiles", [None] * len(file_urls))
+        updated = False
+        for idx, file_url in enumerate(file_urls):
+            # 이미 다운로드된 파일은 스킵
+            if local_paths[idx] and (BACKUP_DIR / local_paths[idx]).exists():
+                continue
+            try:
+                req = Request(file_url, headers={"Authorization": f"Bearer {token}"})
+                with urlopen(req, timeout=60) as resp:
+                    fname = _get_filename(resp, file_url, idx)
+                    # 파일명 중복 방지: msg_id 앞에 붙이기
+                    safe_id = msg["id"][-8:]
+                    save_name = f"{safe_id}_{fname}"
+                    space_dir.mkdir(parents=True, exist_ok=True)
+                    save_path = space_dir / save_name
+                    save_path.write_bytes(resp.read())
+                rel_path = str(save_path.relative_to(BACKUP_DIR)).replace("\\", "/")
+                local_paths[idx] = rel_path
+                updated = True
+                downloaded += 1
+            except Exception as e:
+                log(f"    ⚠️  파일 다운로드 실패 ({fname if 'fname' in dir() else idx}): {e}")
+        if updated:
+            msg["localFiles"] = local_paths
+    return downloaded
+
 def get_all_messages(token, room_id, since=None):
     msgs, params, page = [], {"roomId": room_id, "max": 500}, 1
     while len(msgs) < 10000:
@@ -253,6 +312,14 @@ def run_backup():
                 new_msg_total += len(new_msgs)
                 log(f"  [{i+1}/{len(all_spaces)}] 🆕 {title} ({len(new_msgs)}개)")
 
+            # 첨부파일 다운로드
+            all_msgs = spaces_map[sid]["messages"]
+            has_files = sum(1 for m in all_msgs if m.get("files"))
+            if has_files:
+                n = download_files(token, all_msgs, sid)
+                if n:
+                    log(f"    📎 파일 {n}개 다운로드")
+
         except Exception as e:
             log(f"  [{i+1}/{len(all_spaces)}] ❌ {title}: {e}")
 
@@ -266,10 +333,18 @@ def run_backup():
         json.dump(backup, f, ensure_ascii=False)
     tmp.replace(BACKUP_FILE)
 
-    total_msgs = sum(len(s.get("messages", [])) for s in backup["spaces"])
-    size_mb    = BACKUP_FILE.stat().st_size / 1024 / 1024
-    log(f"✅ 백업 완료! 스페이스 {len(backup['spaces'])}개 | 메시지 {total_msgs:,}개 | {size_mb:.1f}MB")
-    log(f"   저장 위치: {BACKUP_FILE}")
+    total_msgs  = sum(len(s.get("messages", [])) for s in backup["spaces"])
+    total_files = sum(
+        sum(1 for m in s.get("messages", []) if m.get("localFiles"))
+        for s in backup["spaces"]
+    )
+    size_mb = BACKUP_FILE.stat().st_size / 1024 / 1024
+    files_mb = sum(f.stat().st_size for f in FILES_DIR.rglob("*") if f.is_file()) / 1024 / 1024 \
+               if FILES_DIR.exists() else 0
+    log(f"✅ 백업 완료!")
+    log(f"   스페이스: {len(backup['spaces'])}개 | 메시지: {total_msgs:,}개 | 첨부파일: {total_files}개")
+    log(f"   JSON: {size_mb:.1f}MB | 파일: {files_mb:.1f}MB")
+    log(f"   저장 위치: {BACKUP_DIR}")
 
 if __name__ == "__main__":
     run_backup()
