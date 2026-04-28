@@ -21,13 +21,13 @@ jobs:
 
       - name: Build 시작 (Mac)
         run: |
-          pyinstaller --onefile --name webex_backup_시작 \
+          pyinstaller --onefile --name webex_backup_start \
             --add-data "backup.py:." \
             start.py
 
       - name: Build 중지 (Mac)
         run: |
-          pyinstaller --onefile --name webex_backup_중지 \
+          pyinstaller --onefile --name webex_backup_stop \
             stop.py
 
       - name: Upload Mac artifacts
@@ -35,8 +35,8 @@ jobs:
         with:
           name: mac-executables
           path: |
-            dist/webex_backup_시작
-            dist/webex_backup_중지
+            dist/webex_backup_start
+            dist/webex_backup_stop
 
   build-windows:
     runs-on: windows-latest
@@ -52,13 +52,13 @@ jobs:
 
       - name: Build 시작 (Windows)
         run: |
-          pyinstaller --onefile --name webex_backup_시작 `
+          pyinstaller --onefile --name webex_backup_start `
             --add-data "backup.py;." `
             start.py
 
       - name: Build 중지 (Windows)
         run: |
-          pyinstaller --onefile --name webex_backup_중지 `
+          pyinstaller --onefile --name webex_backup_stop `
             stop.py
 
       - name: Upload Windows artifacts
@@ -66,8 +66,8 @@ jobs:
         with:
           name: windows-executables
           path: |
-            dist/webex_backup_시작.exe
-            dist/webex_backup_중지.exe
+            dist/webex_backup_start.exe
+            dist/webex_backup_stop.exe
 
   release:
     needs: [build-mac, build-windows]
@@ -90,16 +90,16 @@ jobs:
             --notes "## 다운로드
           | OS | 시작 | 중지 |
           |----|------|------|
-          | Mac | \`webex_backup_시작\` | \`webex_backup_중지\` |
-          | Windows | \`webex_backup_시작.exe\` | \`webex_backup_중지.exe\` |
+          | Mac | \`webex_backup_start\` | \`webex_backup_stop\` |
+          | Windows | \`webex_backup_start.exe\` | \`webex_backup_stop.exe\` |
 
           ## 사용법
           1. OS에 맞는 파일 다운로드
-          2. \`webex_backup_시작\` 더블클릭 → Webex 로그인 → 자동 백업 설정
-          3. 중지하려면 \`webex_backup_중지\` 더블클릭" \
-            artifacts/mac-executables/webex_backup_시작 \
-            artifacts/mac-executables/webex_backup_중지 \
-            artifacts/windows-executables/webex_backup_시작.exe \
-            artifacts/windows-executables/webex_backup_중지.exe
+          2. \`webex_backup_start\` 더블클릭 → Webex 로그인 → 자동 백업 설정
+          3. 중지하려면 \`webex_backup_stop\` 더블클릭" \
+            artifacts/mac-executables/webex_backup_start \
+            artifacts/mac-executables/webex_backup_stop \
+            artifacts/windows-executables/webex_backup_start.exe \
+            artifacts/windows-executables/webex_backup_stop.exe
         env:
           GH_TOKEN: ${{ github.token }}
