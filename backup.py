@@ -210,13 +210,20 @@ def download_files(token, messages, space_id):
                 for attempt in range(3):
                     try:
                         req = Request(file_url, headers={"Authorization": f"Bearer {token}"})
-                        with urlopen(req, timeout=180) as resp:
+                        # timeout=60: 연결/청크 단위 타임아웃 (전체 파일 크기 무관)
+                        with urlopen(req, timeout=60) as resp:
                             fname = _get_filename(resp, file_url, idx)
                             safe_id = msg["id"][-8:]
                             save_name = f"{safe_id}_{fname}"
                             space_dir.mkdir(parents=True, exist_ok=True)
                             save_path = space_dir / save_name
-                            save_path.write_bytes(resp.read())
+                            # 스트리밍으로 저장 (대용량 파일도 메모리 부담 없음)
+                            with open(save_path, 'wb') as f:
+                                while True:
+                                    chunk = resp.read(1024 * 1024)  # 1MB씩
+                                    if not chunk:
+                                        break
+                                    f.write(chunk)
                         rel_path = str(save_path.relative_to(BACKUP_DIR)).replace("\\", "/")
                         local_paths[idx] = rel_path
                         updated = True
