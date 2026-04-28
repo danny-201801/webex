@@ -369,6 +369,27 @@ def run_backup():
     log(f"   스페이스: {len(backup['spaces'])}개 | 메시지: {total_msgs:,}개 | 첨부파일: {total_files}개")
     log(f"   JSON: {size_mb:.1f}MB | 파일: {files_mb:.1f}MB")
     log(f"   저장 위치: {BACKUP_DIR}")
+    _notify(f"스페이스 {len(backup['spaces'])}개 · 메시지 {total_msgs:,}개 · 파일 {total_files}개")
+
+
+def _notify(message):
+    title = "Webex 백업 완료"
+    try:
+        if sys.platform == "darwin":
+            os.system(f'osascript -e \'display notification "{message}" with title "{title}"\'')
+        elif sys.platform == "win32":
+            ps = (
+                f'[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null;'
+                f'$t = [Windows.UI.Notifications.ToastTemplateType]::ToastText02;'
+                f'$x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent($t);'
+                f'$x.GetElementsByTagName("text")[0].AppendChild($x.CreateTextNode("{title}")) | Out-Null;'
+                f'$x.GetElementsByTagName("text")[1].AppendChild($x.CreateTextNode("{message}")) | Out-Null;'
+                f'$n = [Windows.UI.Notifications.ToastNotification]::new($x);'
+                f'[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Webex Backup").Show($n);'
+            )
+            os.system(f'powershell -Command "{ps}"')
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     run_backup()
