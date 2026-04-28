@@ -157,7 +157,10 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
       <span class="topbar-user" id="topbarUser"></span>
     </div>
     <div class="topbar-right">
-      <button class="btn btn-outline" id="backupBtn" onclick="document.getElementById('backupStartModal').classList.remove('hidden')" style="font-size:13px; padding:6px 14px;">전체 백업 다운로드</button>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+        <button class="btn btn-outline" id="backupBtn" onclick="document.getElementById('backupStartModal').classList.remove('hidden')" style="font-size:13px; padding:6px 14px;">⬇️ 대화/첨부 백업</button>
+        <span style="font-size:10px;color:#484f58;">메시지·첨부파일 내보내기</span>
+      </div>
       <button class="btn btn-outline" onclick="document.getElementById('inAppFileInput').click()" style="font-size:13px; padding:6px 14px;">📂 백업 파일 열기</button>
       <input type="file" id="inAppFileInput" accept=".json" style="display:none" onchange="loadBackupInApp(event)">
       <button class="btn btn-outline" onclick="location.reload()" style="font-size:13px; padding:6px 14px;">← 나가기</button>
