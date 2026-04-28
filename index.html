@@ -94,6 +94,10 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
 .attach-name { color: #8b949e; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attach-saved { color: #3fb950; font-size: 11px; }
 .attach-notsaved { color: #f0883e; font-size: 11px; }
+.attach-name-link { color: #58a6ff; text-decoration: none; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-name-link:hover { text-decoration: underline; }
+.attach-item-img { flex-direction: column; align-items: flex-start; gap: 4px; }
+.attach-thumb { max-width: 200px; max-height: 150px; border-radius: 6px; display: block; cursor: pointer; }
 .thread-wrap { margin-top: 4px; padding-left: 10px; border-left: 2px solid #30363d; display: flex; flex-direction: column; gap: 3px; }
 .msg-group.me .thread-wrap { padding-left: 0; padding-right: 10px; border-left: none; border-right: 2px solid #30363d; align-items: flex-end; }
 .load-more-btn { margin: 0 auto 12px; padding: 6px 18px; border-radius: 8px; border: 1px solid #30363d; background: transparent; color: #8b949e; font-size: 12px; cursor: pointer; }
@@ -152,7 +156,7 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
       <span class="topbar-user" id="topbarUser"></span>
     </div>
     <div class="topbar-right">
-      <button class="btn btn-outline" id="backupBtn" onclick="startBackup()" style="font-size:13px; padding:6px 14px;">전체 백업 다운로드</button>
+      <button class="btn btn-outline" id="backupBtn" onclick="document.getElementById('backupStartModal').classList.remove('hidden')" style="font-size:13px; padding:6px 14px;">전체 백업 다운로드</button>
       <button class="btn btn-outline" onclick="document.getElementById('inAppFileInput').click()" style="font-size:13px; padding:6px 14px;">📂 백업 파일 열기</button>
       <input type="file" id="inAppFileInput" accept=".json" style="display:none" onchange="loadBackupInApp(event)">
       <button class="btn btn-outline" onclick="location.reload()" style="font-size:13px; padding:6px 14px;">← 나가기</button>
@@ -168,6 +172,20 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
     <div class="chat-area" id="chatArea">
       <div class="empty-chat"><div class="icon">💬</div><div>좌측에서 스페이스를 선택하세요</div></div>
     </div>
+  </div>
+</div>
+
+<!-- 백업 시작 선택 모달 -->
+<div class="modal-overlay hidden" id="backupStartModal">
+  <div class="modal">
+    <h3>⬇️ 백업 방식 선택</h3>
+    <p style="margin:8px 0 16px;color:#666;font-size:13px;">이전 백업 파일을 불러오면 변경된 스페이스만 업데이트합니다.</p>
+    <div class="modal-btns" style="flex-direction:column;gap:10px;">
+      <button class="btn btn-primary" onclick="pickPrevBackup()" style="width:100%">📂 이전 백업 파일 불러와서 증분 업데이트</button>
+      <button class="btn btn-outline" onclick="startBackup(null)" style="width:100%">처음부터 전체 백업</button>
+      <button class="btn btn-red" onclick="document.getElementById('backupStartModal').classList.add('hidden')" style="width:100%">취소</button>
+    </div>
+    <input type="file" id="prevBackupInput" accept=".json" style="display:none" onchange="onPrevBackupSelected(event)">
   </div>
 </div>
 
@@ -431,20 +449,31 @@ function renderAttachments(msg) {
   const locals = msg.localFiles || [];
   const ext = f => (f||'').split('.').pop().toLowerCase();
   const imgExts = new Set(['jpg','jpeg','png','gif','webp','bmp','svg']);
+  const isServer = location.hostname === 'localhost';
 
   let html = '<div class="attach-list">';
   for (let i = 0; i < urls.length; i++) {
-    const local = locals[i];
+    const local = locals[i];  // e.g. "files/<space_id>/<filename>"
     const name  = local ? local.split('/').pop() : `첨부파일 ${i+1}`;
     const isImg = local && imgExts.has(ext(local));
 
-    if (isImg && local) {
-      // 로컬 백업 이미지: 오프라인 모드에서 표시 불가 (경로 안내)
-      html += `<div class="attach-item">🖼️ <span class="attach-name">${esc(name)}</span>
-               <span class="attach-saved">✅ 저장됨</span></div>`;
+    if (local && isServer) {
+      // server.py로 실행 중: /files/... 경로로 직접 링크
+      const href = '/' + local.replace(/\\/g, '/');
+      if (isImg) {
+        html += `<div class="attach-item attach-item-img">
+                   <a href="${esc(href)}" target="_blank"><img src="${esc(href)}" alt="${esc(name)}" class="attach-thumb"></a>
+                   <a href="${esc(href)}" download="${esc(name)}" class="attach-name-link">🖼️ ${esc(name)}</a>
+                 </div>`;
+      } else {
+        html += `<div class="attach-item">
+                   📎 <a href="${esc(href)}" download="${esc(name)}" class="attach-name-link">${esc(name)}</a>
+                 </div>`;
+      }
     } else if (local) {
+      // 오프라인 모드: 파일은 있지만 브라우저에서 직접 접근 불가
       html += `<div class="attach-item">📎 <span class="attach-name">${esc(name)}</span>
-               <span class="attach-saved">✅ 저장됨</span></div>`;
+               <span class="attach-saved" title="${esc(local)}">✅ 로컬 저장됨</span></div>`;
     } else {
       html += `<div class="attach-item">📎 <span class="attach-name">첨부파일 ${i+1}</span>
                <span class="attach-notsaved">⚠️ 미저장</span></div>`;
@@ -487,13 +516,43 @@ async function loadMore(roomId) {
 
 // ── 전체 백업 ─────────────────────────────────────────────────────
 
-async function startBackup() {
+function pickPrevBackup() {
+  document.getElementById('prevBackupInput').click();
+}
+
+function onPrevBackupSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const prev = JSON.parse(ev.target.result);
+      document.getElementById('backupStartModal').classList.add('hidden');
+      e.target.value = '';
+      startBackup(prev);
+    } catch {
+      alert('백업 파일을 읽을 수 없습니다.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+async function startBackup(prevBackup) {
   backupCancelled = false;
+  document.getElementById('backupStartModal').classList.add('hidden');
   document.getElementById('backupModal').classList.remove('hidden');
   setProgress(0, '스페이스 목록 확인 중...', '');
 
+  // 이전 백업에서 spaceId → {lastActivity, messages} 맵 구성
+  const prevMap = {};
+  if (prevBackup && Array.isArray(prevBackup.spaces)) {
+    for (const s of prevBackup.spaces) {
+      prevMap[s.id] = { lastActivity: s.lastActivity, messages: s.messages || [] };
+    }
+  }
+  const isIncremental = Object.keys(prevMap).length > 0;
+
   try {
-    // 전체 스페이스 재조회 (1000개 이상일 수 있음)
     let spaces = [], cursor = null;
     while (true) {
       const params = { max: 1000, sortBy: 'lastactivity' };
@@ -508,24 +567,46 @@ async function startBackup() {
       version: 2,
       exportedAt: new Date().toISOString(),
       me: { id: myId, displayName: myName },
-      people: {},
+      people: prevBackup ? Object.assign({}, prevBackup.people) : {},
       spaces: []
     };
 
+    let skipped = 0;
     for (let i = 0; i < spaces.length; i++) {
       if (backupCancelled) break;
       const s = spaces[i];
       const pct = Math.round(i / spaces.length * 100);
+      const prev = prevMap[s.id];
+
+      // lastActivity 동일하면 스킵
+      if (isIncremental && prev && prev.lastActivity === s.lastActivity) {
+        backup.spaces.push({ id:s.id, title:s.title, type:s.type, lastActivity:s.lastActivity, messages: prev.messages });
+        skipped++;
+        setProgress(pct, `[${i+1}/${spaces.length}] ${s.title||'Untitled'}`, `변경 없음 (스킵 ${skipped}개)`);
+        continue;
+      }
+
       setProgress(pct, `[${i+1}/${spaces.length}] ${s.title||'Untitled'}`, '메시지 수집 중...');
 
       try {
-        const messages = await getAllMessages(s.id, (pg, cnt) => {
-          setProgress(pct, `[${i+1}/${spaces.length}] ${s.title||'Untitled'}`, `메시지 ${cnt}개 수집 중 (페이지 ${pg})`);
-        });
+        let messages;
+        if (isIncremental && prev && prev.messages.length > 0) {
+          // 마지막 메시지 이후 신규 메시지만 가져오기
+          const lastMsg = prev.messages[prev.messages.length - 1];
+          const newMsgs = await getMessagesSince(s.id, lastMsg.id, (pg, cnt) => {
+            setProgress(pct, `[${i+1}/${spaces.length}] ${s.title||'Untitled'}`, `신규 메시지 ${cnt}개 수집 중 (페이지 ${pg})`);
+          });
+          messages = prev.messages.concat(newMsgs);
+        } else {
+          messages = await getAllMessages(s.id, (pg, cnt) => {
+            setProgress(pct, `[${i+1}/${spaces.length}] ${s.title||'Untitled'}`, `메시지 ${cnt}개 수집 중 (페이지 ${pg})`);
+          });
+        }
         messages.forEach(m => { if (m.personId && !backup.people[m.personId]) backup.people[m.personId] = peopleCache[m.personId] || ''; });
         backup.spaces.push({ id:s.id, title:s.title, type:s.type, lastActivity:s.lastActivity, messages });
       } catch(e) {
-        backup.spaces.push({ id:s.id, title:s.title, type:s.type, lastActivity:s.lastActivity, messages:[], error:e.message });
+        const fallback = (isIncremental && prev) ? prev.messages : [];
+        backup.spaces.push({ id:s.id, title:s.title, type:s.type, lastActivity:s.lastActivity, messages: fallback, error:e.message });
       }
     }
 
@@ -553,6 +634,29 @@ async function startBackup() {
     alert('백업 오류: ' + e.message);
     document.getElementById('backupModal').classList.add('hidden');
   }
+}
+
+// afterMessageId 이후 신규 메시지만 수집 (최신→과거 순 API 특성상 afterMessage 파라미터 사용)
+async function getMessagesSince(roomId, afterMessageId, onProgress) {
+  let msgs = [], page = 1;
+  const params = { roomId, max: 500 };
+  while (true) {
+    if (backupCancelled) break;
+    if (onProgress) onProgress(page, msgs.length);
+    const data = await webexGet('messages', params);
+    const items = data.items || [];
+    if (!items.length) break;
+    // API는 최신→과거 순으로 반환, afterMessageId를 만나면 중단
+    let done = false;
+    for (const m of items) {
+      if (m.id === afterMessageId) { done = true; break; }
+      msgs.push(m);
+    }
+    if (done || items.length < 500) break;
+    params.beforeMessage = items[items.length-1].id;
+    page++;
+  }
+  return msgs.sort((a,b)=>(a.created||'').localeCompare(b.created||''));
 }
 
 async function getAllMessages(roomId, onProgress) {

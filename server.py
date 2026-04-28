@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-import http.server, urllib.request, urllib.parse, os, sys
+import http.server, urllib.request, urllib.parse, os, sys, mimetypes
+from pathlib import Path
+
+BACKUP_DIR = Path.home() / "Desktop" / "webex_backup"
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args): pass  # 로그 숨김
@@ -12,6 +15,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/api/'):
             self._proxy()
+        elif self.path.startswith('/files/'):
+            self._serve_local_file()
         else:
             fname = 'index.html' if self.path in ('/', '/index.html') else self.path.lstrip('/')
             try:
@@ -24,6 +29,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(data)
             except FileNotFoundError:
                 self.send_error(404)
+
+    def _serve_local_file(self):
+        # /files/<space_id>/<filename> → ~/Desktop/webex_backup/files/<space_id>/<filename>
+        rel = urllib.parse.unquote(self.path[1:])  # "files/..."
+        file_path = BACKUP_DIR / rel
+        # 경로 탈출 방지
+        try:
+            file_path.resolve().relative_to((BACKUP_DIR / "files").resolve())
+        except ValueError:
+            self.send_error(403)
+            return
+        try:
+            with open(file_path, 'rb') as f:
+                data = f.read()
+            ct, _ = mimetypes.guess_type(str(file_path))
+            self.send_response(200)
+            self.send_header('Content-Type', ct or 'application/octet-stream')
+            self.send_header('Content-Disposition', f'inline; filename="{file_path.name}"')
+            self._cors()
+            self.end_headers()
+            self.wfile.write(data)
+        except FileNotFoundError:
+            self.send_error(404)
 
     def _proxy(self):
         path = self.path[5:]  # /api/ 제거
