@@ -24,7 +24,7 @@ def setup_mac():
   </array>
   <key>StartCalendarInterval</key>
   <dict>
-    <key>Hour</key>    <integer>3</integer>
+    <key>Hour</key>    <integer>12</integer>
     <key>Minute</key>  <integer>0</integer>
   </dict>
   <key>StandardOutPath</key>
@@ -39,7 +39,7 @@ def setup_mac():
     plist_path.write_text(plist)
     os.system(f'launchctl unload "{plist_path}" 2>/dev/null')
     os.system(f'launchctl load "{plist_path}"')
-    print(f"✅ Mac 일배치 등록 완료 (매일 오전 3시)")
+    print(f"✅ Mac 일배치 등록 완료 (매일 낮 12시)")
     print(f"   실행 파일: {EXE_PATH}")
 
 def setup_windows():
@@ -47,10 +47,10 @@ def setup_windows():
     os.system('schtasks /delete /tn "WebexBackup" /f 2>nul')
     ret = os.system(
         f'schtasks /create /tn "WebexBackup" /tr "{exe} --cron" '
-        f'/sc daily /st 03:00 /f /rl HIGHEST'
+        f'/sc daily /st 12:00 /f /rl HIGHEST'
     )
     if ret == 0:
-        print("✅ Windows 일배치 등록 완료 (매일 오전 3시)")
+        print("✅ Windows 일배치 등록 완료 (매일 낮 12시)")
     else:
         print("❌ 작업 스케줄러 등록 실패 - 관리자 권한으로 다시 실행해보세요")
 
