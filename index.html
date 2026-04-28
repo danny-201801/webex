@@ -674,7 +674,7 @@ async function startBackup(prevBackup, includeFiles) {
         const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `webex_backup_${ts}.zip`;
+        a.href = url; a.download = `webex_attach_files_${ts}.zip`;
         document.body.appendChild(a); a.click();
         document.body.removeChild(a); URL.revokeObjectURL(url);
       } else {
