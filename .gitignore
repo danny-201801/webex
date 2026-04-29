@@ -2,3 +2,4 @@
 .claude/
 2026-04-22/
 *.rtfd/
+__pycache__/
