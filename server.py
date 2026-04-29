@@ -63,10 +63,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             size = file_path.stat().st_size
             ct, _ = mimetypes.guess_type(str(file_path))
             fname_encoded = urllib.parse.quote(file_path.name)
+            inline_types = {'application/pdf','image/jpeg','image/png','image/gif',
+                            'image/webp','image/svg+xml','image/bmp'}
+            disposition = 'inline' if (ct or '') in inline_types else 'attachment'
             self.send_response(200)
             self.send_header('Content-Type', ct or 'application/octet-stream')
             self.send_header('Content-Length', str(size))
-            self.send_header('Content-Disposition', f"inline; filename*=UTF-8''{fname_encoded}")
+            self.send_header('Content-Disposition', f"{disposition}; filename*=UTF-8''{fname_encoded}")
             self._cors()
             self.end_headers()
             with open(file_path, 'rb') as f:
