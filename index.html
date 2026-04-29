@@ -255,6 +255,13 @@ let reactionsCache = {}; // messageId → [{type, count}]
 const LOCAL_SERVER = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? '' : 'http://localhost:1985';
 
+async function revealFile(e, url) {
+  e.preventDefault();
+  try {
+    await fetch(url);
+  } catch {}
+}
+
 async function loadLocalBackup() {
   try {
     const bk = await fetch(LOCAL_SERVER + '/local-backup.json').then(r => r.json());
@@ -652,8 +659,9 @@ function renderAttachments(msg) {
                    <a href="${esc(href)}" target="_blank" class="attach-name-link">🖼️ ${esc(name)}</a>
                  </div>`;
       } else {
+        const revealUrl = LOCAL_SERVER + '/reveal/' + local.replace(/\\/g, '/');
         html += `<div class="attach-item">
-                   📎 <a href="${esc(href)}" target="_blank" class="attach-name-link">${esc(name)}</a>
+                   📎 <a href="#" class="attach-name-link" onclick="revealFile(event,'${esc(revealUrl)}')">${esc(name)}</a>
                    <span class="attach-saved">✅ 로컬 저장됨</span>
                  </div>`;
       }

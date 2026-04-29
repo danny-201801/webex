@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import http.server, urllib.request, urllib.parse, os, sys, mimetypes
+import http.server, urllib.request, urllib.parse, os, sys, mimetypes, subprocess
 from pathlib import Path
 
 BACKUP_DIR = Path.home() / "Desktop" / "webex_backup"
@@ -17,6 +17,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._proxy()
         elif self.path.startswith('/files/'):
             self._serve_local_file()
+        elif self.path.startswith('/reveal/'):
+            self._reveal_local_file()
         elif self.path == '/local-backup.json':
             self._serve_backup_json()
         else:
@@ -82,6 +84,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_error(404)
         except Exception:
             pass  # 브라우저가 연결을 끊은 경우 등 무시
+
+    def _reveal_local_file(self):
+        # /reveal/files/<space_id>/<filename> → Finder/탐색기에서 해당 파일 선택
+        rel = urllib.parse.unquote(self.path[8:])  # "reveal/" 제거 → "files/..."
+        file_path = BACKUP_DIR / rel
+        try:
+            file_path.resolve().relative_to((BACKUP_DIR / "files").resolve())
+        except ValueError:
+            self.send_error(403)
+            return
+        if not file_path.exists():
+            self.send_error(404)
+            return
+        try:
+            if sys.platform == 'darwin':
+                subprocess.Popen(['open', '-R', str(file_path)])
+            elif sys.platform == 'win32':
+                subprocess.Popen(['explorer', '/select,', str(file_path)])
+            else:
+                subprocess.Popen(['xdg-open', str(file_path.parent)])
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self._cors()
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+        except Exception as e:
+            self.send_error(500, str(e))
 
     def _proxy(self):
         path = self.path[5:]  # /api/ 제거
