@@ -233,6 +233,13 @@ def download_files(token, messages, space_id, space_title=""):
                         # timeout=60: 연결/청크 단위 타임아웃 (전체 파일 크기 무관)
                         with urlopen(req, timeout=60) as resp:
                             fname = _safe_name(_get_filename(resp, file_url, idx))
+                            # 500MB 초과 파일 스킵
+                            MAX_FILE_SIZE = 500 * 1024 * 1024
+                            content_length = resp.headers.get("Content-Length")
+                            if content_length and int(content_length) > MAX_FILE_SIZE:
+                                size_mb = int(content_length) / 1024 / 1024
+                                log(f"    ⏭️  파일 스킵 ({fname}): {size_mb:.0f}MB > 500MB 제한")
+                                break
                             space_dir.mkdir(parents=True, exist_ok=True)
                             save_path = _unique_path(space_dir, fname)
                             # 스트리밍으로 저장 (대용량 파일도 메모리 부담 없음)
