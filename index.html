@@ -646,11 +646,15 @@ function renderAttachments(msg) {
 
   let html = '<div class="attach-list">';
   for (let i = 0; i < urls.length; i++) {
-    const local = locals[i];  // e.g. "files/<space_id>/<filename>"
-    const name  = local ? local.split('/').pop() : `첨부파일 ${i+1}`;
-    const isImg = local && imgExts.has(ext(local));
+    const local = locals[i];  // e.g. "files/<space_id>/<filename>" or "FAILED"
+    const isFailed = local === 'FAILED';
+    const name  = (local && !isFailed) ? local.split('/').pop() : `첨부파일 ${i+1}`;
+    const isImg = local && !isFailed && imgExts.has(ext(local));
 
-    if (local) {
+    if (isFailed) {
+      html += `<div class="attach-item">📎 <span class="attach-name">첨부파일 ${i+1}</span>
+               <span class="attach-notsaved">❌ 다운로드 실패</span></div>`;
+    } else if (local) {
       // server.py 경로: localhost면 상대경로, GitHub Pages면 http://localhost:1985
       const href = LOCAL_SERVER + '/' + local.replace(/\\/g, '/');
       if (isImg) {

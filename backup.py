@@ -222,7 +222,9 @@ def download_files(token, messages, space_id, space_title=""):
         local_paths = msg.get("localFiles", [None] * len(file_urls))
         updated = False
         for idx, file_url in enumerate(file_urls):
-            # 이미 다운로드된 파일은 스킵
+            # 이미 다운로드된 파일 or 영구 실패 표시된 파일 스킵
+            if local_paths[idx] == "FAILED":
+                continue
             if local_paths[idx] and (BACKUP_DIR / local_paths[idx]).exists():
                 continue
             fname = f"file_{idx}"
@@ -233,13 +235,6 @@ def download_files(token, messages, space_id, space_title=""):
                         # timeout=60: 연결/청크 단위 타임아웃 (전체 파일 크기 무관)
                         with urlopen(req, timeout=60) as resp:
                             fname = _safe_name(_get_filename(resp, file_url, idx))
-                            # 500MB 초과 파일 스킵
-                            MAX_FILE_SIZE = 500 * 1024 * 1024
-                            content_length = resp.headers.get("Content-Length")
-                            if content_length and int(content_length) > MAX_FILE_SIZE:
-                                size_mb = int(content_length) / 1024 / 1024
-                                log(f"    ⏭️  파일 스킵 ({fname}): {size_mb:.0f}MB > 500MB 제한")
-                                break
                             space_dir.mkdir(parents=True, exist_ok=True)
                             save_path = _unique_path(space_dir, fname)
                             # 스트리밍으로 저장 (대용량 파일도 메모리 부담 없음)
@@ -262,6 +257,8 @@ def download_files(token, messages, space_id, space_title=""):
                             raise
             except Exception as e:
                 log(f"    ⚠️  파일 다운로드 실패 ({fname}): {e}")
+                local_paths[idx] = "FAILED"  # 다음 백업 때 재시도 안 함
+                updated = True
         if updated:
             msg["localFiles"] = local_paths
     return downloaded
