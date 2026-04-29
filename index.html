@@ -313,7 +313,7 @@ async function connectLive() {
     allSpaces = data.items || [];
 
     isLiveMode = true;
-    await loadLocalBackup();
+    loadLocalBackup();  // 백그라운드 로딩, 로그인 흐름 블로킹 안 함
     enterApp(myName + ' (' + (me.emails||[''])[0] + ')', true);
   } catch(e) {
     let msg = e.message||String(e);
