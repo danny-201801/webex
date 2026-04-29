@@ -77,7 +77,11 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
 .msg-group { display: flex; flex-direction: column; margin-bottom: 6px; }
 .msg-group.me { align-items: flex-end; }
 .msg-group.other { align-items: flex-start; }
-.msg-sender { font-size: 11px; color: #8b949e; margin-bottom: 3px; padding: 0 4px; }
+.msg-sender { font-size: 12px; font-weight: 600; color: #c9d1d9; margin-bottom: 3px; padding: 0 4px; }
+.msg-sender-time { font-size: 11px; font-weight: 400; color: #6e7681; margin-left: 8px; }
+.reaction-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; padding: 0 4px; }
+.reaction-chip { background: #21262d; border: 1px solid #30363d; border-radius: 12px; padding: 2px 9px; font-size: 13px; color: #c9d1d9; cursor: default; display: inline-flex; align-items: center; gap: 4px; }
+.reaction-chip:hover { background: #30363d; border-color: #58a6ff; }
 .bubble { max-width: 65%; padding: 8px 12px; border-radius: 16px; font-size: 14px; line-height: 1.5; word-break: break-word; }
 .msg-group.me .bubble { background: #1a4a8a; color: #e1e4e8; border-bottom-right-radius: 4px; }
 .msg-group.other .bubble { background: #21262d; color: #e1e4e8; border-bottom-left-radius: 4px; }
@@ -241,6 +245,7 @@ let localFilesMap = {}; // messageId → localFiles[]
 let avatarCache = {};  // personId → avatar URL or ''
 let statusCache = {};  // personId → status string
 let statusPollTimer = null;
+let reactionsCache = {}; // messageId → [{type, count}]
 
 async function loadLocalBackup() {
   if (location.hostname !== 'localhost') return;
@@ -420,6 +425,15 @@ async function openSpace(roomId) {
         renderSidebar();
       }
       startStatusPolling(ids);
+      // 리액션 fetch 후 재렌더 (스크롤 위치 유지)
+      fetchReactions(msgs).then(() => {
+        if (currentRoomId !== roomId) return;
+        const container = document.getElementById('msgContainer');
+        const scrollBottom = container ? container.scrollHeight - container.scrollTop - container.clientHeight : 0;
+        renderChat(roomId, space);
+        const nc = document.getElementById('msgContainer');
+        if (nc && scrollBottom < 80) nc.scrollTop = nc.scrollHeight; // 바닥 근처였으면 유지
+      });
     }
   } catch(e) {
     chatArea.innerHTML = `<div class="empty-chat"><div>오류: ${esc(e.message)}</div></div>`;
@@ -530,26 +544,26 @@ function renderChat(roomId, space) {
 function renderMsgGroup(msg, replies) {
   const isMe = msg.personId === myId;
   const side = isMe ? 'me' : 'other';
-  const name = peopleCache[msg.personId] || (msg.personEmail||'').split('@')[0] || 'Unknown';
+  const name = msg.personDisplayName || peopleCache[msg.personId] || (msg.personEmail||'').split('@')[0] || 'Unknown';
   const content = renderContent(msg);
 
   if (!isMe) {
     const av = `<div data-person="${esc(msg.personId)}">${avatarHtml(msg.personId, 30)}</div>`;
     let inner = `<div class="msg-content">
-      <div class="msg-sender">${esc(name)}</div>
+      <div class="msg-sender">${esc(name)}<span class="msg-sender-time">${fmtSenderTime(msg.created)}</span></div>
       <div class="bubble">${content}</div>
       ${msg.files?.length ? renderAttachments(msg) : ''}
-      <div class="msg-time">${fmtTime(msg.created)}</div>`;
+      ${renderReactions(msg.id)}`;
     if (replies.length) {
       inner += `<div class="thread-wrap">`;
       replies.forEach(r => {
         const rIsMe = r.personId===myId;
-        const rn = peopleCache[r.personId]||(r.personEmail||'').split('@')[0]||'Unknown';
+        const rn = r.personDisplayName || peopleCache[r.personId]||(r.personEmail||'').split('@')[0]||'Unknown';
         const rc = renderContent(r);
         if (rIsMe) {
-          inner += `<div class="msg-group me" style="margin-bottom:2px"><div class="msg-content"><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
+          inner += `<div class="msg-group me" style="margin-bottom:2px"><div class="msg-content"><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}${renderReactions(r.id)}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
         } else {
-          inner += `<div class="msg-group other" style="margin-bottom:2px"><div data-person="${esc(r.personId)}">${avatarHtml(r.personId,24)}</div><div class="msg-content"><div class="msg-sender">${esc(rn)}</div><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
+          inner += `<div class="msg-group other" style="margin-bottom:2px"><div data-person="${esc(r.personId)}">${avatarHtml(r.personId,24)}</div><div class="msg-content"><div class="msg-sender">${esc(rn)}<span class="msg-sender-time">${fmtSenderTime(r.created)}</span></div><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}${renderReactions(r.id)}</div></div>`;
         }
       });
       inner += `</div>`;
@@ -561,17 +575,18 @@ function renderMsgGroup(msg, replies) {
   let html = `<div class="msg-group ${side}"><div class="msg-content">`;
   html += `<div class="bubble">${content}</div>`;
   if (msg.files?.length) html += renderAttachments(msg);
+  html += renderReactions(msg.id);
   html += `<div class="msg-time">${fmtTime(msg.created)}</div>`;
   if (replies.length) {
     html += `<div class="thread-wrap">`;
     replies.forEach(r => {
       const rIsMe = r.personId===myId;
-      const rn = peopleCache[r.personId]||(r.personEmail||'').split('@')[0]||'Unknown';
+      const rn = r.personDisplayName || peopleCache[r.personId]||(r.personEmail||'').split('@')[0]||'Unknown';
       const rc = renderContent(r);
       if (rIsMe) {
-        html += `<div class="msg-group me" style="margin-bottom:2px"><div class="msg-content"><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
+        html += `<div class="msg-group me" style="margin-bottom:2px"><div class="msg-content"><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}${renderReactions(r.id)}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
       } else {
-        html += `<div class="msg-group other" style="margin-bottom:2px"><div data-person="${esc(r.personId)}">${avatarHtml(r.personId,24)}</div><div class="msg-content"><div class="msg-sender">${esc(rn)}</div><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
+        html += `<div class="msg-group other" style="margin-bottom:2px"><div data-person="${esc(r.personId)}">${avatarHtml(r.personId,24)}</div><div class="msg-content"><div class="msg-sender">${esc(rn)}<span class="msg-sender-time">${fmtSenderTime(r.created)}</span></div><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}${renderReactions(r.id)}</div></div>`;
       }
     });
     html += `</div>`;
@@ -889,6 +904,34 @@ function downloadJson(filename, data) {
 function fmtTime(iso) {
   if (!iso) return '';
   try { const d=new Date(iso); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); } catch { return ''; }
+}
+function fmtSenderTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+    const h = d.getHours(), ampm = h < 12 ? '오전' : '오후';
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    const min = String(d.getMinutes()).padStart(2,'0');
+    return `${days[d.getDay()]}, ${ampm} ${h12}:${min}`;
+  } catch { return ''; }
+}
+function renderReactions(msgId) {
+  const rs = reactionsCache[msgId];
+  if (!rs || !rs.length) return '';
+  return `<div class="reaction-row">${rs.map(r=>`<span class="reaction-chip">${r.type} ${r.count}</span>`).join('')}</div>`;
+}
+async function fetchReactions(msgs) {
+  if (!isLiveMode) return;
+  const targets = msgs.filter(m => m.id && !Object.prototype.hasOwnProperty.call(reactionsCache, m.id)).slice(-50);
+  await Promise.allSettled(targets.map(async m => {
+    try {
+      const data = await webexGet('reactions', { messageId: m.id });
+      const grouped = {};
+      (data.items||[]).forEach(r => { grouped[r.type] = (grouped[r.type]||0) + 1; });
+      reactionsCache[m.id] = Object.entries(grouped).map(([type,count])=>({type,count}));
+    } catch { reactionsCache[m.id] = []; }
+  }));
 }
 function fmtDate(iso) {
   if (!iso) return '';
