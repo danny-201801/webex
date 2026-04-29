@@ -60,17 +60,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_error(403)
             return
         try:
-            with open(file_path, 'rb') as f:
-                data = f.read()
+            size = file_path.stat().st_size
             ct, _ = mimetypes.guess_type(str(file_path))
+            fname_encoded = urllib.parse.quote(file_path.name)
             self.send_response(200)
             self.send_header('Content-Type', ct or 'application/octet-stream')
-            self.send_header('Content-Disposition', f'inline; filename="{file_path.name}"')
+            self.send_header('Content-Length', str(size))
+            self.send_header('Content-Disposition', f"inline; filename*=UTF-8''{fname_encoded}")
             self._cors()
             self.end_headers()
-            self.wfile.write(data)
+            with open(file_path, 'rb') as f:
+                while True:
+                    chunk = f.read(1024 * 1024)  # 1MB씩 스트리밍
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
         except FileNotFoundError:
             self.send_error(404)
+        except Exception:
+            pass  # 브라우저가 연결을 끊은 경우 등 무시
 
     def _proxy(self):
         path = self.path[5:]  # /api/ 제거
