@@ -396,16 +396,18 @@ def _notify(message):
         if sys.platform == "darwin":
             os.system(f'osascript -e \'display notification "{message}" with title "{title}"\'')
         elif sys.platform == "win32":
+            import subprocess
             ps = (
-                f'[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null;'
-                f'$t = [Windows.UI.Notifications.ToastTemplateType]::ToastText02;'
-                f'$x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent($t);'
+                '[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null;'
+                '$t = [Windows.UI.Notifications.ToastTemplateType]::ToastText02;'
+                '$x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent($t);'
                 f'$x.GetElementsByTagName("text")[0].AppendChild($x.CreateTextNode("{title}")) | Out-Null;'
                 f'$x.GetElementsByTagName("text")[1].AppendChild($x.CreateTextNode("{message}")) | Out-Null;'
-                f'$n = [Windows.UI.Notifications.ToastNotification]::new($x);'
-                f'[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Webex Backup").Show($n);'
+                '$n = [Windows.UI.Notifications.ToastNotification]::new($x);'
+                '[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Webex Backup").Show($n);'
             )
-            os.system(f'powershell -Command "{ps}"')
+            subprocess.run(['powershell', '-NoProfile', '-Command', ps],
+                           capture_output=True, timeout=10)
     except Exception:
         pass
 
