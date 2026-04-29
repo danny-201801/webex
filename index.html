@@ -107,6 +107,24 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
 .spinner { width: 18px; height: 18px; border: 2px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .empty-chat { display: flex; align-items: center; justify-content: center; flex: 1; color: #484f58; font-size: 14px; flex-direction: column; gap: 8px; }
+
+/* ── 아바타 & 상태 ── */
+.avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #30363d; }
+.avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: #30363d; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #8b949e; flex-shrink: 0; }
+.avatar-wrap { position: relative; flex-shrink: 0; }
+.status-dot { position: absolute; bottom: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #0f1117; }
+.status-active   { background: #3fb950; }
+.status-inactive { background: #8b949e; }
+.status-dnd      { background: #f85149; }
+.status-ooo      { background: #f0883e; }
+.status-quiet    { background: #a371f7; }
+.sidebar-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #30363d; }
+.sidebar-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: #21262d; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #8b949e; flex-shrink: 0; }
+.space-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #21262d; transition: background 0.12s; display: flex; align-items: center; gap: 10px; }
+.space-item-info { flex: 1; min-width: 0; }
+.msg-group.other { flex-direction: row; align-items: flex-start; gap: 8px; }
+.msg-group.other .msg-content { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.msg-group.me .msg-content { display: flex; flex-direction: column; align-items: flex-end; min-width: 0; }
 .empty-chat .icon { font-size: 36px; opacity: 0.3; }
 
 /* ── 백업 모달 ── */
@@ -220,6 +238,9 @@ let roomCache = {};
 let isLiveMode = true;
 let backupCancelled = false;
 let localFilesMap = {}; // messageId → localFiles[]
+let avatarCache = {};  // personId → avatar URL or ''
+let statusCache = {};  // personId → status string
+let statusPollTimer = null;
 
 async function loadLocalBackup() {
   if (location.hostname !== 'localhost') return;
@@ -356,9 +377,19 @@ function renderSidebar() {
     const active = s.id === currentRoomId ? 'active' : '';
     const type = s.type === 'direct' ? '1:1' : '그룹';
     const date = (s.lastActivity||'').slice(0,10);
+    // 1:1이면 상대방 아바타, 그룹이면 플레이스홀더
+    let avHtml = '';
+    if (s.type === 'direct' && s._otherId) {
+      avHtml = avatarHtml(s._otherId, 36).replace('class="avatar"', 'class="sidebar-avatar"').replace('class="avatar-placeholder"', 'class="sidebar-avatar-placeholder"');
+    } else {
+      avHtml = `<div class="sidebar-avatar-placeholder">💬</div>`;
+    }
     return `<div class="space-item ${active}" onclick="openSpace('${s.id}')">
-      <div class="space-item-name">${esc(s.title||'Untitled')}</div>
-      <div class="space-item-meta"><span class="space-tag">${type}</span><span>${date}</span></div>
+      ${avHtml}
+      <div class="space-item-info">
+        <div class="space-item-name">${esc(s.title||'Untitled')}</div>
+        <div class="space-item-meta"><span class="space-tag">${type}</span><span>${date}</span></div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -368,6 +399,7 @@ function renderSidebar() {
 async function openSpace(roomId) {
   if (currentRoomId === roomId) return;
   currentRoomId = roomId;
+  stopStatusPolling();
   renderSidebar();
   const space = allSpaces.find(s => s.id === roomId) || {};
   const chatArea = document.getElementById('chatArea');
@@ -377,6 +409,18 @@ async function openSpace(roomId) {
   try {
     if (!roomCache[roomId]) await loadMessages(roomId, null);
     renderChat(roomId, space);
+
+    // 현재 스페이스 참여자 ID 수집 → 폴링 시작
+    if (isLiveMode) {
+      const msgs = roomCache[roomId]?.messages || [];
+      const ids = [...new Set(msgs.map(m => m.personId).filter(id => id && id !== myId))];
+      // 1:1 스페이스: 상대방 ID를 사이드바 아바타용으로 저장
+      if (space.type === 'direct' && ids.length) {
+        space._otherId = ids[0];
+        renderSidebar();
+      }
+      startStatusPolling(ids);
+    }
   } catch(e) {
     chatArea.innerHTML = `<div class="empty-chat"><div>오류: ${esc(e.message)}</div></div>`;
   }
@@ -399,11 +443,58 @@ async function loadMessages(roomId, beforeId) {
 }
 
 async function resolvePeople(ids) {
-  const unknowns = [...new Set(ids.filter(id=>id && !peopleCache[id]))];
+  const unknowns = [...new Set(ids.filter(id => id && !peopleCache[id]))];
   await Promise.allSettled(unknowns.map(async id => {
-    try { const p = await webexGet(`people/${id}`); peopleCache[id] = p.displayName||(p.emails||[''])[0]||'Unknown'; }
-    catch { peopleCache[id] = 'Unknown'; }
+    try {
+      const p = await webexGet(`people/${id}`);
+      peopleCache[id] = p.displayName || (p.emails||[''])[0] || 'Unknown';
+      avatarCache[id] = p.avatar || '';
+      statusCache[id] = p.status || 'inactive';
+    } catch { peopleCache[id] = 'Unknown'; avatarCache[id] = ''; }
   }));
+}
+
+function avatarHtml(personId, size = 32) {
+  const url = avatarCache[personId];
+  const status = statusCache[personId] || 'inactive';
+  const dotClass = `status-${status === 'active' ? 'active' : status === 'dnd' ? 'dnd' : status === 'ooo' ? 'ooo' : status === 'quiet' ? 'quiet' : 'inactive'}`;
+  const img = url
+    ? `<img class="avatar" src="${esc(url)}" style="width:${size}px;height:${size}px" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+    : '';
+  const placeholder = `<div class="avatar-placeholder" style="width:${size}px;height:${size}px;${url?'display:none':''}">${esc((peopleCache[personId]||'?')[0].toUpperCase())}</div>`;
+  return `<div class="avatar-wrap">${img}${placeholder}<span class="status-dot ${dotClass}"></span></div>`;
+}
+
+async function pollStatus(personIds) {
+  if (!isLiveMode) return;
+  await Promise.allSettled(personIds.map(async id => {
+    try {
+      const p = await webexGet(`people/${id}`);
+      const prev = statusCache[id];
+      statusCache[id] = p.status || 'inactive';
+      avatarCache[id] = p.avatar || avatarCache[id] || '';
+      if (prev !== statusCache[id]) updateStatusDots(id);
+    } catch {}
+  }));
+}
+
+function updateStatusDots(personId) {
+  const status = statusCache[personId] || 'inactive';
+  const dotClass = `status-dot status-${status === 'active' ? 'active' : status === 'dnd' ? 'dnd' : status === 'ooo' ? 'ooo' : status === 'quiet' ? 'quiet' : 'inactive'}`;
+  document.querySelectorAll(`[data-person="${personId}"] .status-dot`).forEach(el => {
+    el.className = dotClass;
+  });
+}
+
+function startStatusPolling(personIds) {
+  if (statusPollTimer) clearInterval(statusPollTimer);
+  if (!personIds.length || !isLiveMode) return;
+  pollStatus(personIds);
+  statusPollTimer = setInterval(() => pollStatus(personIds), 5000);
+}
+
+function stopStatusPolling() {
+  if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
 }
 
 // ── 채팅 렌더링 ───────────────────────────────────────────────────
@@ -441,8 +532,33 @@ function renderMsgGroup(msg, replies) {
   const side = isMe ? 'me' : 'other';
   const name = peopleCache[msg.personId] || (msg.personEmail||'').split('@')[0] || 'Unknown';
   const content = renderContent(msg);
-  let html = `<div class="msg-group ${side}">`;
-  if (!isMe) html += `<div class="msg-sender">${esc(name)}</div>`;
+
+  if (!isMe) {
+    const av = `<div data-person="${esc(msg.personId)}">${avatarHtml(msg.personId, 30)}</div>`;
+    let inner = `<div class="msg-content">
+      <div class="msg-sender">${esc(name)}</div>
+      <div class="bubble">${content}</div>
+      ${msg.files?.length ? renderAttachments(msg) : ''}
+      <div class="msg-time">${fmtTime(msg.created)}</div>`;
+    if (replies.length) {
+      inner += `<div class="thread-wrap">`;
+      replies.forEach(r => {
+        const rIsMe = r.personId===myId;
+        const rn = peopleCache[r.personId]||(r.personEmail||'').split('@')[0]||'Unknown';
+        const rc = renderContent(r);
+        if (rIsMe) {
+          inner += `<div class="msg-group me" style="margin-bottom:2px"><div class="msg-content"><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
+        } else {
+          inner += `<div class="msg-group other" style="margin-bottom:2px"><div data-person="${esc(r.personId)}">${avatarHtml(r.personId,24)}</div><div class="msg-content"><div class="msg-sender">${esc(rn)}</div><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
+        }
+      });
+      inner += `</div>`;
+    }
+    inner += `</div>`;
+    return `<div class="msg-group ${side}">${av}${inner}</div>`;
+  }
+
+  let html = `<div class="msg-group ${side}"><div class="msg-content">`;
   html += `<div class="bubble">${content}</div>`;
   if (msg.files?.length) html += renderAttachments(msg);
   html += `<div class="msg-time">${fmtTime(msg.created)}</div>`;
@@ -451,15 +567,16 @@ function renderMsgGroup(msg, replies) {
     replies.forEach(r => {
       const rIsMe = r.personId===myId;
       const rn = peopleCache[r.personId]||(r.personEmail||'').split('@')[0]||'Unknown';
-      html += `<div class="msg-group ${rIsMe?'me':'other'}" style="margin-bottom:2px">`;
-      if (!rIsMe) html += `<div class="msg-sender" style="font-size:10px">${esc(rn)} ↩</div>`;
-      else html += `<div class="msg-sender" style="font-size:10px">↩ 답글</div>`;
-      html += `<div class="bubble" style="font-size:13px">${renderContent(r)}</div>`;
-      html += `<div class="msg-time">${fmtTime(r.created)}</div></div>`;
+      const rc = renderContent(r);
+      if (rIsMe) {
+        html += `<div class="msg-group me" style="margin-bottom:2px"><div class="msg-content"><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
+      } else {
+        html += `<div class="msg-group other" style="margin-bottom:2px"><div data-person="${esc(r.personId)}">${avatarHtml(r.personId,24)}</div><div class="msg-content"><div class="msg-sender">${esc(rn)}</div><div class="bubble">${rc}</div>${r.files?.length?renderAttachments(r):''}<div class="msg-time">${fmtTime(r.created)}</div></div></div>`;
+      }
     });
     html += `</div>`;
   }
-  return html + `</div>`;
+  return html + `</div></div>`;
 }
 
 function renderContent(msg) {
