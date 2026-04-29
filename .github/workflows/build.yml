@@ -69,7 +69,7 @@ jobs:
 
       - name: Build 서버 (Windows)
         run: |
-          pyinstaller --onefile --name webex_server `
+          pyinstaller --onefile --noconsole --name webex_server `
             server.py
 
       - name: Upload Windows artifacts
