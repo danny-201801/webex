@@ -171,7 +171,7 @@ FILES_DIR = BACKUP_DIR / "files"
 
 def _get_filename(resp, url, idx):
     """Content-Disposition 헤더에서 파일명 추출, 없으면 URL 기반"""
-    from urllib.parse import unquote
+    from urllib.parse import unquote, unquote_plus
     cd = resp.headers.get("Content-Disposition", "")
     if "filename*=" in cd:
         try:
@@ -183,10 +183,12 @@ def _get_filename(resp, url, idx):
             pass
     if 'filename="' in cd:
         try:
-            return cd.split('filename="')[1].split('"')[0]
+            name = cd.split('filename="')[1].split('"')[0]
+            return unquote_plus(name)
         except:
             pass
-    seg = unquote(url.rstrip("/").split("/")[-1].split("?")[0])
+    # URL 경로에서 추출 (+는 공백, %XX는 디코딩)
+    seg = unquote_plus(url.rstrip("/").split("/")[-1].split("?")[0])
     return seg if seg else f"file_{idx}"
 
 def _safe_name(name):
