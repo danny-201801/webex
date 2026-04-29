@@ -589,7 +589,6 @@ function renderAttachments(msg) {
   const locals = msg.localFiles || localFilesMap[msg.id] || [];
   const ext = f => (f||'').split('.').pop().toLowerCase();
   const imgExts = new Set(['jpg','jpeg','png','gif','webp','bmp','svg']);
-  const isServer = location.hostname === 'localhost';
 
   let html = '<div class="attach-list">';
   for (let i = 0; i < urls.length; i++) {
@@ -597,23 +596,20 @@ function renderAttachments(msg) {
     const name  = local ? local.split('/').pop() : `첨부파일 ${i+1}`;
     const isImg = local && imgExts.has(ext(local));
 
-    if (local && isServer) {
-      // server.py로 실행 중: /files/... 경로로 직접 링크
+    if (local) {
+      // /files/... 링크 — server.py 실행 중이면 열림
       const href = '/' + local.replace(/\\/g, '/');
       if (isImg) {
         html += `<div class="attach-item attach-item-img">
                    <a href="${esc(href)}" target="_blank"><img src="${esc(href)}" alt="${esc(name)}" class="attach-thumb"></a>
-                   <a href="${esc(href)}" download="${esc(name)}" class="attach-name-link">🖼️ ${esc(name)}</a>
+                   <a href="${esc(href)}" target="_blank" class="attach-name-link">🖼️ ${esc(name)}</a>
                  </div>`;
       } else {
         html += `<div class="attach-item">
-                   📎 <a href="${esc(href)}" download="${esc(name)}" class="attach-name-link">${esc(name)}</a>
+                   📎 <a href="${esc(href)}" target="_blank" class="attach-name-link">${esc(name)}</a>
+                   <span class="attach-saved">✅ 로컬 저장됨</span>
                  </div>`;
       }
-    } else if (local) {
-      // 오프라인 모드: 파일은 있지만 브라우저에서 직접 접근 불가
-      html += `<div class="attach-item">📎 <span class="attach-name">${esc(name)}</span>
-               <span class="attach-saved" title="${esc(local)}">✅ 로컬 저장됨</span></div>`;
     } else {
       html += `<div class="attach-item">📎 <span class="attach-name">첨부파일 ${i+1}</span>
                <span class="attach-notsaved">⚠️ 미저장</span></div>`;
