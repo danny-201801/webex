@@ -108,9 +108,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
 
+class ReuseHTTPServer(http.server.HTTPServer):
+    allow_reuse_address = True
+
 if __name__ == '__main__':
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     port = 1985
     print(f'✅ 서버 시작: http://localhost:{port}')
     print('종료하려면 Ctrl+C')
-    http.server.HTTPServer(('localhost', port), Handler).serve_forever()
+    ReuseHTTPServer(('localhost', port), Handler).serve_forever()
