@@ -126,9 +126,12 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
 .sidebar-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: #21262d; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #8b949e; flex-shrink: 0; }
 .space-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #21262d; transition: background 0.12s; display: flex; align-items: center; gap: 10px; }
 .space-item-info { flex: 1; min-width: 0; }
-.msg-group.other { flex-direction: row; align-items: flex-start; gap: 8px; }
-.msg-group.other .msg-content { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.msg-group.other { flex-direction: row; align-items: flex-start; gap: 8px; max-width: 75%; }
+.msg-group.other .msg-content { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.msg-group.other .bubble { max-width: 100%; }
+.msg-group.me { max-width: 75%; align-self: flex-end; }
 .msg-group.me .msg-content { display: flex; flex-direction: column; align-items: flex-end; min-width: 0; }
+.msg-group.me .bubble { max-width: 100%; }
 .empty-chat .icon { font-size: 36px; opacity: 0.3; }
 
 /* ── 백업 모달 ── */
