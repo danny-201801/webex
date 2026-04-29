@@ -30,6 +30,11 @@ jobs:
           pyinstaller --onefile --name webex_backup_stop \
             stop.py
 
+      - name: Build 서버 (Mac)
+        run: |
+          pyinstaller --onefile --name webex_server \
+            server.py
+
       - name: Upload Mac artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -37,6 +42,7 @@ jobs:
           path: |
             dist/webex_backup_start
             dist/webex_backup_stop
+            dist/webex_server
 
   build-windows:
     runs-on: windows-latest
@@ -61,6 +67,11 @@ jobs:
           pyinstaller --onefile --name webex_backup_stop `
             stop.py
 
+      - name: Build 서버 (Windows)
+        run: |
+          pyinstaller --onefile --name webex_server `
+            server.py
+
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -68,6 +79,7 @@ jobs:
           path: |
             dist/webex_backup_start.exe
             dist/webex_backup_stop.exe
+            dist/webex_server.exe
 
   release:
     needs: [build-mac, build-windows]
@@ -88,18 +100,21 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "Webex Backup ${{ github.ref_name }}" \
             --notes "## 다운로드
-          | OS | 시작 | 중지 |
-          |----|------|------|
-          | Mac | \`webex_backup_start\` | \`webex_backup_stop\` |
-          | Windows | \`webex_backup_start.exe\` | \`webex_backup_stop.exe\` |
+          | OS | 시작 | 중지 | 서버 |
+          |----|------|------|------|
+          | Mac | \`webex_backup_start\` | \`webex_backup_stop\` | \`webex_server\` |
+          | Windows | \`webex_backup_start.exe\` | \`webex_backup_stop.exe\` | \`webex_server.exe\` |
 
           ## 사용법
-          1. OS에 맞는 파일 다운로드
-          2. \`webex_backup_start\` 더블클릭 → Webex 로그인 → 자동 백업 설정
-          3. 중지하려면 \`webex_backup_stop\` 더블클릭" \
+          1. OS에 맞는 파일 3개를 **같은 폴더**에 다운로드
+          2. \`webex_backup_start\` 더블클릭 → Webex 로그인 → 자동 백업 + 웹 뷰어 서버 설정
+          3. 이후 부팅 시 자동으로 http://localhost:8080 에서 웹 뷰어 실행
+          4. 중지(포트 8080 해제)하려면 \`webex_backup_stop\` 더블클릭" \
             artifacts/mac-executables/webex_backup_start \
             artifacts/mac-executables/webex_backup_stop \
+            artifacts/mac-executables/webex_server \
             artifacts/windows-executables/webex_backup_start.exe \
-            artifacts/windows-executables/webex_backup_stop.exe
+            artifacts/windows-executables/webex_backup_stop.exe \
+            artifacts/windows-executables/webex_server.exe
         env:
           GH_TOKEN: ${{ github.token }}
