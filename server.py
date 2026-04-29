@@ -101,7 +101,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if sys.platform == 'darwin':
                 subprocess.Popen(['open', '-R', str(file_path)])
             elif sys.platform == 'win32':
-                subprocess.Popen(['explorer', '/select,', str(file_path)])
+                subprocess.Popen(['explorer', f'/select,{file_path}'])
             else:
                 subprocess.Popen(['xdg-open', str(file_path.parent)])
             self.send_response(200)
