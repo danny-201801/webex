@@ -219,6 +219,21 @@ let currentRoomId = null;
 let roomCache = {};
 let isLiveMode = true;
 let backupCancelled = false;
+let localFilesMap = {}; // messageId → localFiles[]
+
+async function loadLocalBackup() {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const bk = await fetch('/local-backup.json').then(r => r.json());
+    if (!bk || !Array.isArray(bk.spaces)) return;
+    for (const sp of bk.spaces) {
+      for (const m of sp.messages || []) {
+        if (m.localFiles && m.localFiles.some(p => p))
+          localFilesMap[m.id] = m.localFiles;
+      }
+    }
+  } catch {}
+}
 
 // ── API ───────────────────────────────────────────────────────────
 
@@ -254,6 +269,7 @@ async function connectLive() {
     allSpaces = data.items || [];
 
     isLiveMode = true;
+    await loadLocalBackup();
     enterApp(myName + ' (' + (me.emails||[''])[0] + ')', true);
   } catch(e) {
     let msg = e.message||String(e);
@@ -453,7 +469,7 @@ function renderContent(msg) {
 
 function renderAttachments(msg) {
   const urls   = msg.files      || [];
-  const locals = msg.localFiles || [];
+  const locals = msg.localFiles || localFilesMap[msg.id] || [];
   const ext = f => (f||'').split('.').pop().toLowerCase();
   const imgExts = new Set(['jpg','jpeg','png','gif','webp','bmp','svg']);
   const isServer = location.hostname === 'localhost';
@@ -916,6 +932,7 @@ async function connectWithToken() {
     const data = await webexGet('rooms', { max: 1000, sortBy: 'lastactivity' });
     allSpaces = data.items || [];
     isLiveMode = true;
+    await loadLocalBackup();
     enterApp(myName + ' (' + (me.emails||[''])[0] + ')', true);
   } catch(e) {
     err.textContent = '연결 실패: ' + e.message;

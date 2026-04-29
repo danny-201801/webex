@@ -17,6 +17,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._proxy()
         elif self.path.startswith('/files/'):
             self._serve_local_file()
+        elif self.path == '/local-backup.json':
+            self._serve_backup_json()
         else:
             fname = 'index.html' if self.path in ('/', '/index.html') else self.path.lstrip('/')
             try:
@@ -29,6 +31,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(data)
             except FileNotFoundError:
                 self.send_error(404)
+
+    def _serve_backup_json(self):
+        backup_file = BACKUP_DIR / "backup.json"
+        try:
+            with open(backup_file, 'rb') as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self._cors()
+            self.end_headers()
+            self.wfile.write(data)
+        except FileNotFoundError:
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self._cors()
+            self.end_headers()
+            self.wfile.write(b'null')
 
     def _serve_local_file(self):
         # /files/<space_id>/<filename> → ~/Desktop/webex_backup/files/<space_id>/<filename>
