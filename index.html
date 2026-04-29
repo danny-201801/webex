@@ -631,6 +631,24 @@ function renderContent(msg) {
   return esc(msg.text||'').replace(/\n/g,'<br>');
 }
 
+
+function openLocalFile(localPath) {
+  if (!localPath) return false;
+  const url = `${LOCAL_SERVER}/open-local-file?path=${encodeURIComponent(localPath.replace(/\\/g, '/'))}`;
+  fetch(url, { method: 'GET' })
+    .then(async r => {
+      if (!r.ok) {
+        const msg = await r.text().catch(() => '');
+        throw new Error(msg || `파일 열기 실패 (${r.status})`);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('파일 탐색기를 열 수 없습니다. server.py가 실행 중인지, 파일이 ~/Desktop/webex_backup/files 아래에 있는지 확인하세요.');
+    });
+  return false;
+}
+
 function renderAttachments(msg) {
   const urls   = msg.files      || [];
   const locals = msg.localFiles || localFilesMap[msg.id] || [];
@@ -644,17 +662,20 @@ function renderAttachments(msg) {
     const isImg = local && imgExts.has(ext(local));
 
     if (local) {
-      // server.py 경로: localhost면 상대경로, GitHub Pages면 http://localhost:1985
-      const href = LOCAL_SERVER + '/' + local.replace(/\\/g, '/');
+      // 첨부 클릭 시 브라우저에서 열지 않고, OS 파일 탐색기에서 해당 파일을 선택 상태로 표시
+      const safeLocal = esc(local.replace(/\\/g, '/'));
+      const openHandler = `return openLocalFile('${safeLocal.replace(/'/g, "&#39;")}')`;
+      const href = LOCAL_SERVER + '/' + local.replace(/\\/g, '/'); // 이미지 미리보기용
       if (isImg) {
         html += `<div class="attach-item attach-item-img">
-                   <a href="${esc(href)}" target="_blank"><img src="${esc(href)}" alt="${esc(name)}" class="attach-thumb"></a>
-                   <a href="${esc(href)}" target="_blank" class="attach-name-link">🖼️ ${esc(name)}</a>
+                   <img src="${esc(href)}" alt="${esc(name)}" class="attach-thumb" onclick="${openHandler}" title="파일 위치 열기">
+                   <a href="#" onclick="${openHandler}" class="attach-name-link">🖼️ ${esc(name)}</a>
+                   <span class="attach-saved">✅ 로컬 저장됨 · 클릭하면 폴더에서 선택</span>
                  </div>`;
       } else {
         html += `<div class="attach-item">
-                   📎 <a href="${esc(href)}" target="_blank" class="attach-name-link">${esc(name)}</a>
-                   <span class="attach-saved">✅ 로컬 저장됨</span>
+                   📎 <a href="#" onclick="${openHandler}" class="attach-name-link" title="파일 위치 열기">${esc(name)}</a>
+                   <span class="attach-saved">✅ 로컬 저장됨 · 클릭하면 폴더에서 선택</span>
                  </div>`;
       }
     } else {

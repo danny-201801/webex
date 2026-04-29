@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import http.server, urllib.request, urllib.parse, os, sys, mimetypes
+import http.server, urllib.request, urllib.parse, os, sys, mimetypes, subprocess, platform
 from pathlib import Path
 
 BACKUP_DIR = Path.home() / "Desktop" / "webex_backup"
@@ -17,6 +17,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._proxy()
         elif self.path.startswith('/files/'):
             self._serve_local_file()
+        elif self.path.startswith('/open-local-file'):
+            self._open_local_file()
         elif self.path == '/local-backup.json':
             self._serve_backup_json()
         else:
@@ -79,6 +81,56 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_error(404)
         except Exception:
             pass  # 브라우저가 연결을 끊은 경우 등 무시
+
+
+    def _open_local_file(self):
+        """Open the OS file manager and focus/select a saved attachment.
+        Accepts: /open-local-file?path=files/<space_id>/<filename>
+        Only files under ~/Desktop/webex_backup/files are allowed.
+        """
+        try:
+            parsed = urllib.parse.urlparse(self.path)
+            qs = urllib.parse.parse_qs(parsed.query)
+            rel = qs.get('path', [''])[0]
+            rel = urllib.parse.unquote(rel).replace('\\', '/')
+            if not rel.startswith('files/'):
+                self.send_error(400, 'path must start with files/')
+                return
+
+            file_path = (BACKUP_DIR / rel).resolve()
+            files_root = (BACKUP_DIR / 'files').resolve()
+            try:
+                file_path.relative_to(files_root)
+            except ValueError:
+                self.send_error(403, 'forbidden path')
+                return
+
+            if not file_path.exists():
+                self.send_error(404, 'file not found')
+                return
+
+            system = platform.system().lower()
+            if system == 'darwin':
+                # Finder에서 해당 파일 선택
+                subprocess.Popen(['open', '-R', str(file_path)])
+            elif system == 'windows':
+                # Explorer에서 해당 파일 선택
+                subprocess.Popen(['explorer', '/select,', str(file_path)])
+            else:
+                # Linux 등: 파일 선택은 DE별 차이가 커서 폴더 열기
+                subprocess.Popen(['xdg-open', str(file_path.parent)])
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self._cors()
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-Type', 'text/plain; charset=utf-8')
+            self._cors()
+            self.end_headers()
+            self.wfile.write(str(e).encode('utf-8', errors='replace'))
 
     def _proxy(self):
         path = self.path[5:]  # /api/ 제거
