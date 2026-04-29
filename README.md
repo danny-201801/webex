@@ -23,7 +23,7 @@ python start.py
 # 스케줄러 해제
 python stop.py
 
-# 웹 뷰어 서버 시작 → http://localhost:8080
+# 웹 뷰어 서버 시작 → http://localhost:1985
 python server.py
 ```
 
@@ -70,7 +70,7 @@ pyinstaller --onefile --name webex_backup_시작 --add-data "backup.py;." start.
 - 첨부파일: `~/Desktop/webex_backup/files/<space_id>/<msg_id_suffix>_<filename>`에 저장, `localFiles` 배열로 경로 기록
 
 ### 웹 뷰어 (`index.html` + `server.py`)
-- **라이브 모드**: `server.py`(포트 8080)가 `/api/` 경로를 `https://webexapis.com/v1/`로 프록시 (CORS 우회), OAuth는 브라우저 `localStorage`에 토큰 저장
+- **라이브 모드**: `server.py`(포트 1985)가 `/api/` 경로를 `https://webexapis.com/v1/`로 프록시 (CORS 우회), OAuth는 브라우저 `localStorage`에 토큰 저장
 - **오프라인 모드**: `backup.json` 파일을 드래그&드롭 또는 파일 선택으로 로드
 - 단일 HTML 파일, 외부 의존성 없음
 

@@ -20,7 +20,7 @@ def stop_mac():
     if server_plist.exists():
         os.system(f'launchctl unload "{server_plist}"')
         server_plist.unlink()
-        print("✅ 웹 뷰어 서버 자동 시작 중지 완료 (포트 8080 해제)")
+        print("✅ 웹 뷰어 서버 자동 시작 중지 완료 (포트 1985 해제)")
     else:
         print("ℹ️  등록된 웹 뷰어 서버가 없습니다")
 
@@ -36,7 +36,7 @@ def stop_windows():
     os.system('schtasks /end /tn "WebexServer" 2>nul')
     ret2 = os.system('schtasks /delete /tn "WebexServer" /f 2>nul')
     if ret2 == 0:
-        print("✅ Windows 웹 뷰어 서버 자동 시작 중지 완료 (포트 8080 해제)")
+        print("✅ Windows 웹 뷰어 서버 자동 시작 중지 완료 (포트 1985 해제)")
     else:
         print("ℹ️  등록된 웹 뷰어 서버가 없습니다")
 

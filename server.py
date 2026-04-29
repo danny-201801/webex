@@ -102,7 +102,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    port = 8080
+    port = 1985
     print(f'✅ 서버 시작: http://localhost:{port}')
     print('종료하려면 Ctrl+C')
     http.server.HTTPServer(('localhost', port), Handler).serve_forever()

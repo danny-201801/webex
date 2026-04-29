@@ -65,8 +65,8 @@ def setup_mac():
         server_plist_path.write_text(server_plist)
         os.system(f'launchctl unload "{server_plist_path}" 2>/dev/null')
         os.system(f'launchctl load "{server_plist_path}"')
-        print(f"✅ 웹 뷰어 서버 자동 시작 등록 완료 (부팅 시 http://localhost:8080)")
-        print(f"   중지하려면 webex_backup_stop 실행 (포트 8080 해제됨)")
+        print(f"✅ 웹 뷰어 서버 자동 시작 등록 완료 (부팅 시 http://localhost:1985)")
+        print(f"   중지하려면 webex_backup_stop 실행 (포트 1985 해제됨)")
     else:
         print(f"⚠️  webex_server 파일이 없어 서버 자동 시작을 건너뜁니다")
         print(f"   webex_server와 webex_backup_start를 같은 폴더에 두세요")
@@ -94,8 +94,8 @@ def setup_windows():
         # 지금 바로 시작
         os.system('schtasks /run /tn "WebexServer"')
         if ret2 == 0:
-            print("✅ Windows 웹 뷰어 서버 자동 시작 등록 완료 (로그온 시 http://localhost:8080)")
-            print("   중지하려면 webex_backup_stop 실행 (포트 8080 해제됨)")
+            print("✅ Windows 웹 뷰어 서버 자동 시작 등록 완료 (로그온 시 http://localhost:1985)")
+            print("   중지하려면 webex_backup_stop 실행 (포트 1985 해제됨)")
     else:
         print(f"⚠️  webex_server.exe 파일이 없어 서버 자동 시작을 건너뜁니다")
 
@@ -120,7 +120,7 @@ def first_run():
     print("🎉 설정 완료!")
     print(f"   백업 파일: {backup.BACKUP_FILE}")
     print(f"   로그 파일: {backup.LOG_FILE}")
-    print(f"   웹 뷰어:   http://localhost:8080")
+    print(f"   웹 뷰어:   http://localhost:1985")
     print()
     input("Enter를 눌러 종료...")
 

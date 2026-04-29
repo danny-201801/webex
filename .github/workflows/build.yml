@@ -108,8 +108,8 @@ jobs:
           ## 사용법
           1. OS에 맞는 파일 3개를 **같은 폴더**에 다운로드
           2. \`webex_backup_start\` 더블클릭 → Webex 로그인 → 자동 백업 + 웹 뷰어 서버 설정
-          3. 이후 부팅 시 자동으로 http://localhost:8080 에서 웹 뷰어 실행
-          4. 중지(포트 8080 해제)하려면 \`webex_backup_stop\` 더블클릭" \
+          3. 이후 부팅 시 자동으로 http://localhost:1985 에서 웹 뷰어 실행
+          4. 중지(포트 1985 해제)하려면 \`webex_backup_stop\` 더블클릭" \
             artifacts/mac-executables/webex_backup_start \
             artifacts/mac-executables/webex_backup_stop \
             artifacts/mac-executables/webex_server \

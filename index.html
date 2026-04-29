@@ -250,10 +250,10 @@ let statusCache = {};  // personId → status string
 let statusPollTimer = null;
 let reactionsCache = {}; // messageId → [{type, count}]
 
-// server.py가 localhost:8080에서 실행 중이면 GitHub Pages에서도 접근 가능
+// server.py가 localhost:1985에서 실행 중이면 GitHub Pages에서도 접근 가능
 // (브라우저는 https에서 http://localhost 접근을 허용함)
 const LOCAL_SERVER = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? '' : 'http://localhost:8080';
+  ? '' : 'http://localhost:1985';
 
 async function loadLocalBackup() {
   try {
@@ -644,7 +644,7 @@ function renderAttachments(msg) {
     const isImg = local && imgExts.has(ext(local));
 
     if (local) {
-      // server.py 경로: localhost면 상대경로, GitHub Pages면 http://localhost:8080
+      // server.py 경로: localhost면 상대경로, GitHub Pages면 http://localhost:1985
       const href = LOCAL_SERVER + '/' + local.replace(/\\/g, '/');
       if (isImg) {
         html += `<div class="attach-item attach-item-img">
