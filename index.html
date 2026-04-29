@@ -247,17 +247,25 @@ let statusCache = {};  // personId → status string
 let statusPollTimer = null;
 let reactionsCache = {}; // messageId → [{type, count}]
 
+// server.py가 localhost:8080에서 실행 중이면 GitHub Pages에서도 접근 가능
+// (브라우저는 https에서 http://localhost 접근을 허용함)
+const LOCAL_SERVER = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? '' : 'http://localhost:8080';
+
 async function loadLocalBackup() {
-  if (location.hostname !== 'localhost') return;
   try {
-    const bk = await fetch('/local-backup.json').then(r => r.json());
+    const bk = await fetch(LOCAL_SERVER + '/local-backup.json').then(r => r.json());
     if (!bk || !Array.isArray(bk.spaces)) return;
+    let cnt = 0;
     for (const sp of bk.spaces) {
       for (const m of sp.messages || []) {
-        if (m.localFiles && m.localFiles.some(p => p))
+        if (m.localFiles && m.localFiles.some(p => p)) {
           localFilesMap[m.id] = m.localFiles;
+          cnt++;
+        }
       }
     }
+    if (cnt) console.log(`[loadLocalBackup] ${cnt}개 메시지 첨부파일 경로 로드됨`);
   } catch {}
 }
 
@@ -367,6 +375,7 @@ function enterApp(userLabel, live) {
   badge.className = 'mode-badge ' + (live ? 'mode-live' : 'mode-offline');
   document.getElementById('backupBtn').style.display = live ? '' : 'none';
   filterSpaces();
+  if (live) preloadDirectAvatars();
 }
 
 // ── 사이드바 ──────────────────────────────────────────────────────
@@ -511,6 +520,26 @@ function stopStatusPolling() {
   if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
 }
 
+// 앱 진입 시 직접 대화 스페이스의 상대방 ID를 백그라운드에서 미리 로드
+async function preloadDirectAvatars() {
+  const directs = allSpaces.filter(s => s.type === 'direct' && !s._otherId);
+  for (let i = 0; i < directs.length; i += 10) {
+    if (!isLiveMode) break;
+    const batch = directs.slice(i, i + 10);
+    await Promise.allSettled(batch.map(async s => {
+      try {
+        const data = await webexGet('memberships', { roomId: s.id, max: 10 });
+        const other = (data.items || []).find(m => m.personId !== myId);
+        if (other) {
+          s._otherId = other.personId;
+          await resolvePeople([other.personId]);
+        }
+      } catch {}
+    }));
+    renderSidebar();
+  }
+}
+
 // ── 채팅 렌더링 ───────────────────────────────────────────────────
 
 function renderChat(roomId, space) {
@@ -612,8 +641,8 @@ function renderAttachments(msg) {
     const isImg = local && imgExts.has(ext(local));
 
     if (local) {
-      // /files/... 링크 — server.py 실행 중이면 열림
-      const href = '/' + local.replace(/\\/g, '/');
+      // server.py 경로: localhost면 상대경로, GitHub Pages면 http://localhost:8080
+      const href = LOCAL_SERVER + '/' + local.replace(/\\/g, '/');
       if (isImg) {
         html += `<div class="attach-item attach-item-img">
                    <a href="${esc(href)}" target="_blank"><img src="${esc(href)}" alt="${esc(name)}" class="attach-thumb"></a>
