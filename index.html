@@ -169,9 +169,6 @@ mark.search-hl.current { background: #f0a500; color: #000; }
     <h2>🔴 라이브 연결</h2>
     <p>Webex 계정으로 로그인해 실시간 대화를 보거나 전체 백업합니다.</p>
     <button class="btn btn-green" id="oauthBtn" onclick="startOAuth()">Webex로 로그인</button>
-    <div class="divider">또는</div>
-    <input type="password" id="tokenInput" placeholder="Bearer Token 직접 입력 (12시간 유효)" />
-    <button class="btn btn-outline" id="connectBtn" onclick="connectLive()" style="width:100%;margin-top:4px">토큰으로 연결</button>
     <div class="login-error hidden" id="loginError"></div>
   </div>
 
@@ -290,7 +287,13 @@ async function loadLocalBackup() {
         }
       }
     }
-    if (cnt) console.log(`[loadLocalBackup] ${cnt}개 메시지 첨부파일 경로 로드됨`);
+    if (cnt) {
+      console.log(`[loadLocalBackup] ${cnt}개 메시지 첨부파일 경로 로드됨`);
+      if (currentRoomId && roomCache[currentRoomId]) {
+        const space = allSpaces.find(s => s.id === currentRoomId) || {};
+        renderChat(currentRoomId, space);
+      }
+    }
   } catch {}
 }
 
@@ -309,36 +312,6 @@ async function webexGet(endpoint, params = {}) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ── 라이브 연결 ───────────────────────────────────────────────────
-
-async function connectLive() {
-  token = document.getElementById('tokenInput').value.trim();
-  if (!token) return;
-  const btn = document.getElementById('connectBtn');
-  const err = document.getElementById('loginError');
-  btn.disabled = true; btn.textContent = '연결 중...';
-  err.classList.add('hidden');
-  try {
-    btn.textContent = '사용자 확인 중...';
-    const me = await webexGet('people/me');
-    myId = me.id; myName = me.displayName || '';
-    peopleCache[myId] = myName;
-
-    btn.textContent = '스페이스 목록 불러오는 중...';
-    const data = await webexGet('rooms', { max: 1000, sortBy: 'lastactivity' });
-    allSpaces = data.items || [];
-
-    isLiveMode = true;
-    loadLocalBackup();  // 백그라운드 로딩, 로그인 흐름 블로킹 안 함
-    enterApp(myName + ' (' + (me.emails||[''])[0] + ')', true);
-  } catch(e) {
-    let msg = e.message||String(e);
-    if (msg.includes('401')) msg = '토큰이 올바르지 않거나 만료되었습니다.';
-    else if (msg.includes('Failed to fetch')) msg = '네트워크 오류 - server.py가 실행 중인지 확인하세요.';
-    err.textContent = '연결 실패: ' + msg;
-    err.classList.remove('hidden');
-    btn.disabled = false; btn.textContent = '연결';
-  }
-}
 
 // ── 백업 파일 열기 ────────────────────────────────────────────────
 
@@ -423,7 +396,7 @@ function runChatSearch() {
   if (!q.trim()) { updateChatNav(); return; }
   const container = document.getElementById('msgContainer');
   if (!container) return;
-  _highlightText(container, q);
+  container.querySelectorAll('.bubble, .attach-name-link, .attach-name').forEach(el => _highlightInElement(el, q));
   _chatMatches = [...container.querySelectorAll('mark.search-hl')];
   _chatMatchIdx = _chatMatches.length ? 0 : -1;
   if (_chatMatchIdx >= 0) { _chatMatches[0].classList.add('current'); _chatMatches[0].scrollIntoView({ block: 'center', behavior: 'smooth' }); }
@@ -461,25 +434,22 @@ function clearChatHighlights() {
   _chatMatches = []; _chatMatchIdx = -1;
 }
 
-function _highlightText(container, q) {
+function _highlightInElement(root, q) {
   const lower = q.toLowerCase();
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
   for (const node of nodes) {
-    const text = node.textContent;
+    const text = node.nodeValue;
+    if (!text) continue;
     const ltext = text.toLowerCase();
     if (!ltext.includes(lower)) continue;
-    let el = node.parentElement, inTarget = false;
-    while (el && el !== container) {
-      if (el.classList.contains('bubble') || el.classList.contains('attach-name-link') || el.classList.contains('attach-name')) { inTarget = true; break; }
-      el = el.parentElement;
-    }
-    if (!inTarget) continue;
+    const parent = node.parentNode;
+    if (!parent) continue;
     const frag = document.createDocumentFragment();
     let last = 0, idx = ltext.indexOf(lower);
     while (idx >= 0) {
-      frag.appendChild(document.createTextNode(text.slice(last, idx)));
+      if (idx > last) frag.appendChild(document.createTextNode(text.slice(last, idx)));
       const mark = document.createElement('mark');
       mark.className = 'search-hl';
       mark.textContent = text.slice(idx, idx + q.length);
@@ -487,8 +457,8 @@ function _highlightText(container, q) {
       last = idx + q.length;
       idx = ltext.indexOf(lower, last);
     }
-    frag.appendChild(document.createTextNode(text.slice(last)));
-    node.parentNode.replaceChild(frag, node);
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    parent.replaceChild(frag, node);
   }
 }
 
@@ -1294,7 +1264,6 @@ async function connectWithToken() {
   }
 }
 
-document.getElementById('tokenInput').addEventListener('keydown', e => { if (e.key==='Enter') connectLive(); });
 setupFileDrop();
 
 // 페이지 로드시: OAuth 콜백 처리 or 자동 로그인 시도
