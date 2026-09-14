@@ -134,6 +134,21 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; 
 .msg-group.me .bubble { max-width: 100%; }
 .empty-chat .icon { font-size: 36px; opacity: 0.3; }
 
+/* ── 검색 ── */
+.space-item-snippet { font-size: 11px; color: #6e7681; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.space-item-snippet mark { background: transparent; color: #f0a500; font-style: normal; }
+.chat-search-bar { display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: #0d1117; border-bottom: 1px solid #30363d; flex-shrink: 0; }
+.chat-search-bar input { flex: 1; padding: 5px 10px; border-radius: 8px; border: 1px solid #30363d; background: #161b22; color: #e1e4e8; font-size: 13px; outline: none; }
+.chat-search-bar input:focus { border-color: #58a6ff; }
+.chat-search-nav { font-size: 11px; color: #6e7681; white-space: nowrap; min-width: 56px; text-align: right; }
+.chat-search-btn { padding: 3px 8px; border-radius: 6px; border: 1px solid #30363d; background: transparent; color: #8b949e; cursor: pointer; font-size: 12px; line-height: 1; }
+.chat-search-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+mark.search-hl { background: #4a3800; color: #f0a500; border-radius: 2px; font-style: normal; }
+mark.search-hl.current { background: #f0a500; color: #000; }
+.chat-header-row { display: flex; align-items: center; justify-content: space-between; }
+.chat-search-toggle { padding: 4px 8px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #6e7681; cursor: pointer; font-size: 14px; }
+.chat-search-toggle:hover { border-color: #30363d; color: #e1e4e8; }
+
 /* ── 백업 모달 ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
 .modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 28px; width: 480px; max-width: 90vw; }
@@ -390,9 +405,135 @@ function enterApp(userLabel, live) {
 
 // ── 사이드바 ──────────────────────────────────────────────────────
 
+// ── 채팅 내 검색 ──────────────────────────────────────────────────
+let _chatMatches = [], _chatMatchIdx = -1;
+
+function toggleChatSearch() {
+  const bar = document.getElementById('chatSearchBar');
+  if (!bar) return;
+  const opening = bar.style.display === 'none';
+  bar.style.display = opening ? 'flex' : 'none';
+  if (opening) { document.getElementById('chatSearchInput').focus(); }
+  else { clearChatHighlights(); document.getElementById('chatSearchNav').textContent = ''; }
+}
+
+function runChatSearch() {
+  clearChatHighlights();
+  const q = document.getElementById('chatSearchInput').value;
+  if (!q.trim()) { updateChatNav(); return; }
+  const container = document.getElementById('msgContainer');
+  if (!container) return;
+  _highlightText(container, q);
+  _chatMatches = [...container.querySelectorAll('mark.search-hl')];
+  _chatMatchIdx = _chatMatches.length ? 0 : -1;
+  if (_chatMatchIdx >= 0) { _chatMatches[0].classList.add('current'); _chatMatches[0].scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  updateChatNav();
+}
+
+function nextChatMatch() {
+  if (!_chatMatches.length) return;
+  _chatMatches[_chatMatchIdx]?.classList.remove('current');
+  _chatMatchIdx = (_chatMatchIdx + 1) % _chatMatches.length;
+  _chatMatches[_chatMatchIdx].classList.add('current');
+  _chatMatches[_chatMatchIdx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+  updateChatNav();
+}
+
+function prevChatMatch() {
+  if (!_chatMatches.length) return;
+  _chatMatches[_chatMatchIdx]?.classList.remove('current');
+  _chatMatchIdx = (_chatMatchIdx - 1 + _chatMatches.length) % _chatMatches.length;
+  _chatMatches[_chatMatchIdx].classList.add('current');
+  _chatMatches[_chatMatchIdx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+  updateChatNav();
+}
+
+function updateChatNav() {
+  const el = document.getElementById('chatSearchNav');
+  if (!el) return;
+  el.textContent = _chatMatches.length ? `${_chatMatchIdx + 1} / ${_chatMatches.length}` : (document.getElementById('chatSearchInput')?.value ? '없음' : '');
+}
+
+function clearChatHighlights() {
+  const container = document.getElementById('msgContainer');
+  if (!container) return;
+  container.querySelectorAll('mark.search-hl').forEach(m => m.replaceWith(document.createTextNode(m.textContent)));
+  _chatMatches = []; _chatMatchIdx = -1;
+}
+
+function _highlightText(container, q) {
+  const lower = q.toLowerCase();
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const text = node.textContent;
+    const ltext = text.toLowerCase();
+    if (!ltext.includes(lower)) continue;
+    let el = node.parentElement, inTarget = false;
+    while (el && el !== container) {
+      if (el.classList.contains('bubble') || el.classList.contains('attach-name-link') || el.classList.contains('attach-name')) { inTarget = true; break; }
+      el = el.parentElement;
+    }
+    if (!inTarget) continue;
+    const frag = document.createDocumentFragment();
+    let last = 0, idx = ltext.indexOf(lower);
+    while (idx >= 0) {
+      frag.appendChild(document.createTextNode(text.slice(last, idx)));
+      const mark = document.createElement('mark');
+      mark.className = 'search-hl';
+      mark.textContent = text.slice(idx, idx + q.length);
+      frag.appendChild(mark);
+      last = idx + q.length;
+      idx = ltext.indexOf(lower, last);
+    }
+    frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f' && document.getElementById('chatSearchBar')) {
+    e.preventDefault(); toggleChatSearch();
+  }
+});
+
 function filterSpaces() {
   const q = document.getElementById('spaceSearch').value.trim().toLowerCase();
-  filtered = q ? allSpaces.filter(s => (s.title||'').toLowerCase().includes(q)) : [...allSpaces];
+  if (!q) { filtered = [...allSpaces]; renderSidebar(); return; }
+  filtered = [];
+  for (const s of allSpaces) {
+    if ((s.title||'').toLowerCase().includes(q)) {
+      filtered.push({ ...s, _snippet: null }); continue;
+    }
+    const msgs = roomCache[s.id]?.messages || [];
+    let found = false;
+    for (const m of msgs) {
+      const text = (m.text||'').toLowerCase();
+      const fileNames = [...(m.localFiles||[])].map(f => (f||'').split('/').pop().toLowerCase()).join(' ');
+      const hit = text.indexOf(q);
+      const fileHit = fileNames.indexOf(q);
+      if (hit >= 0 || fileHit >= 0) {
+        let snippet;
+        if (hit >= 0) {
+          const raw = m.text || '';
+          const s0 = Math.max(0, hit - 15);
+          snippet = (s0 > 0 ? '…' : '') + raw.slice(s0, hit) +
+            '<mark>' + esc(raw.slice(hit, hit + q.length)) + '</mark>' +
+            esc(raw.slice(hit + q.length, hit + q.length + 30)) +
+            (hit + q.length + 30 < raw.length ? '…' : '');
+        } else {
+          const fi = fileNames.indexOf(q);
+          snippet = '📎 ' + fileNames.slice(Math.max(0, fi - 5), fi) +
+            '<mark>' + esc(fileNames.slice(fi, fi + q.length)) + '</mark>' +
+            fileNames.slice(fi + q.length, fi + q.length + 20);
+        }
+        filtered.push({ ...s, _snippet: snippet });
+        found = true; break;
+      }
+    }
+    if (!found && msgs.length === 0 && (s.title||'').toLowerCase().includes(q)) filtered.push({ ...s, _snippet: null });
+  }
   renderSidebar();
 }
 
@@ -408,11 +549,13 @@ function renderSidebar() {
     } else {
       avHtml = `<div class="sidebar-avatar-placeholder">💬</div>`;
     }
+    const snippetHtml = s._snippet ? `<div class="space-item-snippet">${s._snippet}</div>` : '';
     return `<div class="space-item ${active}" onclick="openSpace('${s.id}')">
       ${avHtml}
       <div class="space-item-info">
         <div class="space-item-name">${esc(s.title||'Untitled')}</div>
         <div class="space-item-meta"><span class="space-tag">${type}</span><span>${date}</span></div>
+        ${snippetHtml}
       </div>
     </div>`;
   }).join('');
@@ -424,6 +567,7 @@ async function openSpace(roomId) {
   if (currentRoomId === roomId) return;
   currentRoomId = roomId;
   stopStatusPolling();
+  clearChatHighlights();
   renderSidebar();
   const space = allSpaces.find(s => s.id === roomId) || {};
   const chatArea = document.getElementById('chatArea');
@@ -560,8 +704,17 @@ function renderChat(roomId, space) {
   const chatArea = document.getElementById('chatArea');
   let html = `
     <div class="chat-header">
-      <h2>${esc(space.title||'Untitled')}</h2>
-      <p>${space.type==='direct'?'1:1 대화':'그룹 스페이스'} · ${messages.length}개 메시지</p>
+      <div class="chat-header-row">
+        <div><h2>${esc(space.title||'Untitled')}</h2><p>${space.type==='direct'?'1:1 대화':'그룹 스페이스'} · ${messages.length}개 메시지</p></div>
+        <button class="chat-search-toggle" onclick="toggleChatSearch()" title="채팅 내 검색 (Ctrl+F)">🔍</button>
+      </div>
+    </div>
+    <div class="chat-search-bar" id="chatSearchBar" style="display:none">
+      <input type="text" id="chatSearchInput" placeholder="이 대화에서 검색..." oninput="runChatSearch()" onkeydown="if(event.key==='Enter')nextChatMatch();if(event.key==='Escape')toggleChatSearch();">
+      <span class="chat-search-nav" id="chatSearchNav"></span>
+      <button class="chat-search-btn" onclick="prevChatMatch()" title="이전">▲</button>
+      <button class="chat-search-btn" onclick="nextChatMatch()" title="다음">▼</button>
+      <button class="chat-search-btn" onclick="toggleChatSearch()">✕</button>
     </div>
     <div class="chat-messages" id="msgContainer">`;
 
