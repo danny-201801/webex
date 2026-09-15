@@ -212,6 +212,17 @@ mark.search-hl.current { background: #f0a500; color: #000; }
     <input type="file" id="fileInput" accept=".json" style="display:none" onchange="loadBackupFile(event)">
     <div class="login-error hidden" id="fileError"></div>
   </div>
+
+  <!-- 다운로드 -->
+  <div class="login-box">
+    <h2>⬇️ 프로그램 다운로드</h2>
+    <p>백업 프로그램을 처음 설치하거나 최신 버전으로 업데이트합니다.<br>3개 파일을 <strong>같은 폴더</strong>에 받아주세요.</p>
+    <div style="display:flex;gap:10px;margin-bottom:10px;">
+      <button class="btn btn-outline" onclick="showDownload('mac')" style="flex:1;font-size:15px;padding:12px;">🍎 Mac</button>
+      <button class="btn btn-outline" onclick="showDownload('win')" style="flex:1;font-size:15px;padding:12px;">🪟 Windows</button>
+    </div>
+    <div id="downloadLinks" class="hidden" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
 </div>
 
 <!-- 메인 앱 -->
@@ -1554,6 +1565,27 @@ async function connectWithToken() {
     err.classList.remove('hidden');
     btn.disabled = false; btn.textContent = 'Webex로 로그인';
   }
+}
+
+function showDownload(os) {
+  const base = 'https://github.com/danny-201801/webex/releases/latest/download/';
+  const files = os === 'mac'
+    ? [ ['webex_backup_start',     '🚀 백업 시작 프로그램'],
+        ['webex_backup_stop',      '🛑 백업 중지 프로그램'],
+        ['webex_server',           '🖥️ 뷰어 서버'] ]
+    : [ ['webex_backup_start.exe', '🚀 백업 시작 프로그램'],
+        ['webex_backup_stop.exe',  '🛑 백업 중지 프로그램'],
+        ['webex_server.exe',       '🖥️ 뷰어 서버'] ];
+
+  const box = document.getElementById('downloadLinks');
+  box.innerHTML = files.map(([fname, label]) =>
+    `<a href="${base}${fname}" class="btn btn-outline" style="text-align:left;font-size:13px;padding:10px 14px;text-decoration:none;display:flex;align-items:center;gap:8px;">
+      <span style="flex:1">${label}</span>
+      <span style="font-size:11px;color:#57606a;font-family:monospace;">${fname}</span>
+      <span>⬇</span>
+    </a>`
+  ).join('');
+  box.classList.remove('hidden');
 }
 
 setupFileDrop();
