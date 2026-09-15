@@ -12,6 +12,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
+    def do_POST(self):
+        if self.path.startswith('/save-file/'):
+            self._save_file()
+        else:
+            self.send_error(405)
+
+    def _save_file(self):
+        # /save-file/files/<space_id>/<filename> → ~/Desktop/webex_backup/files/<space_id>/<filename>
+        rel = urllib.parse.unquote(self.path[11:])  # '/save-file/' 제거
+        file_path = BACKUP_DIR / rel
+        try:
+            file_path.resolve().relative_to((BACKUP_DIR / "files").resolve())
+        except ValueError:
+            self.send_error(403)
+            return
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        length = int(self.headers.get('Content-Length', 0))
+        data = self.rfile.read(length)
+        file_path.write_bytes(data)
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self._cors()
+        self.end_headers()
+        self.wfile.write(b'{"ok":true}')
+
     def do_GET(self):
         if self.path.startswith('/api/'):
             self._proxy()
@@ -139,7 +164,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
 
 class ReuseHTTPServer(http.server.HTTPServer):
     allow_reuse_address = True

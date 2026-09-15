@@ -256,10 +256,9 @@ mark.search-hl.current { background: #f0a500; color: #000; }
     <h3>⬇️ 백업 방식 선택</h3>
     <p style="margin:8px 0 16px;color:#666;font-size:13px;">이전 백업 파일을 불러오면 변경된 스페이스만 업데이트합니다.</p>
     <div class="modal-btns" style="flex-direction:column;gap:10px;">
-      <button class="btn btn-primary" onclick="pickPrevBackup(false)" style="width:100%">📂 증분 업데이트 (JSON)</button>
-      <button class="btn btn-primary" onclick="pickPrevBackup(true)" style="width:100%;background:#1a5c2a;">📦 증분 업데이트 + 첨부파일 (ZIP)</button>
-      <button class="btn btn-outline" onclick="startBackup(null, false)" style="width:100%">처음부터 전체 백업 (JSON)</button>
-      <button class="btn btn-outline" onclick="startBackup(null, true)" style="width:100%;border-color:#2da44e;color:#2da44e;">📦 처음부터 전체 백업 + 첨부파일 (ZIP)</button>
+      <button class="btn btn-primary" onclick="pickPrevBackup()" style="width:100%">📂 증분 업데이트 (JSON + 첨부파일 로컬 저장)</button>
+      <button class="btn btn-outline" onclick="startBackup(null, false, false)" style="width:100%">처음부터 전체 백업 (JSON)</button>
+      <button class="btn btn-outline" onclick="startBackup(null, true, false)" style="width:100%;border-color:#2da44e;color:#2da44e;">📦 처음부터 전체 백업 + 첨부파일 (ZIP)</button>
       <button class="btn btn-red" onclick="document.getElementById('backupStartModal').classList.add('hidden')" style="width:100%">취소</button>
     </div>
     <input type="file" id="prevBackupInput" accept=".json" style="display:none" onchange="onPrevBackupSelected(event)">
@@ -1087,9 +1086,7 @@ async function loadMore(roomId) {
 
 // ── 전체 백업 ─────────────────────────────────────────────────────
 
-let _pickIncludeFiles = false;
-function pickPrevBackup(includeFiles) {
-  _pickIncludeFiles = includeFiles;
+function pickPrevBackup() {
   document.getElementById('prevBackupInput').click();
 }
 
@@ -1102,7 +1099,7 @@ function onPrevBackupSelected(e) {
       const prev = JSON.parse(ev.target.result);
       document.getElementById('backupStartModal').classList.add('hidden');
       e.target.value = '';
-      startBackup(prev, _pickIncludeFiles);
+      startBackup(prev, false, true); // JSON + 로컬 첨부파일 저장
     } catch {
       alert('백업 파일을 읽을 수 없습니다.');
     }
@@ -1110,7 +1107,7 @@ function onPrevBackupSelected(e) {
   reader.readAsText(file);
 }
 
-async function startBackup(prevBackup, includeFiles) {
+async function startBackup(prevBackup, includeFiles, saveToLocal = false) {
   backupCancelled = false;
   document.getElementById('backupStartModal').classList.add('hidden');
   document.getElementById('backupModal').classList.remove('hidden');
@@ -1193,6 +1190,48 @@ async function startBackup(prevBackup, includeFiles) {
         try { const p = await webexGet(`people/${id}`); backup.people[id] = p.displayName||(p.emails||[''])[0]||'Unknown'; }
         catch { backup.people[id] = 'Unknown'; }
       }));
+    }
+
+    if (!backupCancelled && saveToLocal) {
+      // 첨부파일을 server.py를 통해 ~/Desktop/webex_backup/files/ 에 저장
+      let fileTotal = 0, fileDone = 0;
+      for (const sp of backup.spaces)
+        for (const m of sp.messages||[])
+          for (let i = 0; i < (m.files||[]).length; i++)
+            if (!(m.localFiles||[])[i] || (m.localFiles||[])[i] === 'FAILED') fileTotal++;
+
+      for (const sp of backup.spaces) {
+        if (backupCancelled) break;
+        for (const m of sp.messages||[]) {
+          if (backupCancelled) break;
+          const urls = m.files || [];
+          if (!urls.length) continue;
+          const locals = m.localFiles ? [...m.localFiles] : new Array(urls.length).fill(null);
+          let changed = false;
+          for (let i = 0; i < urls.length; i++) {
+            if (locals[i] && locals[i] !== 'FAILED') continue; // 이미 저장됨
+            fileDone++;
+            setProgress(Math.round(fileDone / fileTotal * 99), `첨부파일 저장 중... (${fileDone}/${fileTotal})`, sp.title||'');
+            try {
+              const resp = await fetch(urls[i], { headers: { Authorization: `Bearer ${token}` } });
+              if (!resp.ok) { locals[i] = 'FAILED'; changed = true; continue; }
+              const cd = resp.headers.get('Content-Disposition') || '';
+              let fname = '';
+              const m5 = cd.match(/filename\*=UTF-8''([^;]+)/i);
+              if (m5) fname = decodeURIComponent(m5[1]);
+              if (!fname) { const m6 = cd.match(/filename="([^"]+)"/); if (m6) fname = m6[1]; }
+              if (!fname) fname = urls[i].split('/').pop().split('?')[0] || `file_${i}`;
+              const safeName = `${m.id.slice(-8)}_${fname}`;
+              const localPath = `files/${sp.id}/${safeName}`;
+              const buf = await resp.arrayBuffer();
+              const saveResp = await fetch(LOCAL_SERVER + '/save-file/' + localPath, { method: 'POST', body: buf });
+              locals[i] = saveResp.ok ? localPath : 'FAILED';
+              changed = true;
+            } catch { locals[i] = 'FAILED'; changed = true; }
+          }
+          if (changed && locals.some(p => p && p !== 'FAILED')) m.localFiles = locals;
+        }
+      }
     }
 
     if (!backupCancelled) {
