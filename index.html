@@ -165,6 +165,28 @@ mark.search-hl.current { background: #f0a500; color: #000; }
 .progress-text { font-size: 13px; color: #57606a; text-align: center; margin-bottom: 6px; }
 .progress-detail { font-size: 11px; color: #57606a; text-align: center; min-height: 16px; }
 .modal-btns { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
+
+/* ── 콘텐츠 탭 ── */
+.chat-tabs { display: flex; gap: 0; border-top: 1px solid #d0d7de; padding: 0 16px; background: #ffffff; flex-shrink: 0; }
+.chat-tab { padding: 8px 14px; border: none; border-bottom: 2px solid transparent; background: transparent; color: #57606a; font-size: 13px; cursor: pointer; font-weight: 500; line-height: 1; transition: color 0.12s; }
+.chat-tab:hover { color: #1f2328; }
+.chat-tab.active { color: #0969da; border-bottom-color: #0969da; font-weight: 600; }
+.chat-files-view, .chat-links-view { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.chat-files-view::-webkit-scrollbar, .chat-links-view::-webkit-scrollbar { width: 6px; }
+.chat-files-view::-webkit-scrollbar-thumb, .chat-links-view::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 3px; }
+.file-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #ffffff; border: 1px solid #d0d7de; border-radius: 8px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.file-card:hover { border-color: #0969da; background: #f6fbff; }
+.file-card-icon { font-size: 22px; flex-shrink: 0; width: 32px; text-align: center; }
+.file-card-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.file-card-info { flex: 1; min-width: 0; }
+.file-card-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1f2328; }
+.file-card-meta { font-size: 11px; color: #57606a; margin-top: 2px; }
+.file-card-status { font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+.link-card { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: #ffffff; border: 1px solid #d0d7de; border-radius: 8px; }
+.link-card-url { font-size: 12px; color: #0969da; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
+.link-card-url:hover { text-decoration: underline; }
+.link-card-context { font-size: 11px; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.link-card-meta { font-size: 11px; color: #57606a; }
 </style>
 </head>
 <body>
@@ -273,6 +295,7 @@ let avatarCache = {};  // personId → avatar URL or ''
 let statusCache = {};  // personId → status string
 let statusPollTimer = null;
 let reactionsCache = {}; // messageId → [{type, count}]
+let currentTab = 'messages'; // 현재 선택된 탭
 
 // server.py가 localhost:1985에서 실행 중이면 GitHub Pages에서도 접근 가능
 // (브라우저는 https에서 http://localhost 접근을 허용함)
@@ -467,6 +490,7 @@ function enterApp(userLabel, live) {
 let _chatMatches = [], _chatMatchIdx = -1;
 
 function toggleChatSearch() {
+  if (currentTab !== 'messages') return;
   const bar = document.getElementById('chatSearchBar');
   if (!bar) return;
   const opening = bar.style.display === 'none';
@@ -603,6 +627,7 @@ function renderSidebar() {
 async function openSpace(roomId) {
   if (currentRoomId === roomId) return;
   currentRoomId = roomId;
+  currentTab = 'messages';
   stopStatusPolling();
   clearChatHighlights();
   renderSidebar();
@@ -754,7 +779,12 @@ function renderChat(roomId, space) {
     <div class="chat-header">
       <div class="chat-header-row">
         <div><h2>${esc(space.title||'Untitled')}</h2><p>${space.type==='direct'?'1:1 대화':'그룹 스페이스'} · ${messages.length}개 메시지</p></div>
-        <button class="chat-search-toggle" onclick="toggleChatSearch()" title="채팅 내 검색 (Ctrl+F)">🔍</button>
+        <button class="chat-search-toggle" id="chatSearchToggleBtn" onclick="toggleChatSearch()" title="채팅 내 검색 (Ctrl+F)" style="${currentTab!=='messages'?'display:none':''}">🔍</button>
+      </div>
+      <div class="chat-tabs">
+        <button class="chat-tab ${currentTab==='messages'?'active':''}" data-tab="messages" onclick="showTab('messages')">💬 메시지</button>
+        <button class="chat-tab ${currentTab==='files'?'active':''}" data-tab="files" onclick="showTab('files')">📎 파일</button>
+        <button class="chat-tab ${currentTab==='links'?'active':''}" data-tab="links" onclick="showTab('links')">🔗 링크</button>
       </div>
     </div>
     <div class="chat-search-bar" id="chatSearchBar" style="display:none">
@@ -764,7 +794,7 @@ function renderChat(roomId, space) {
       <button class="chat-search-btn" onclick="nextChatMatch()" title="다음">▼</button>
       <button class="chat-search-btn" onclick="toggleChatSearch()">✕</button>
     </div>
-    <div class="chat-messages" id="msgContainer">`;
+    <div class="chat-messages" id="msgContainer" ${currentTab!=='messages'?'style="display:none"':''}>`;
 
   if (hasMore) html += `<button class="load-more-btn" onclick="loadMore('${roomId}')">이전 메시지 더 보기</button>`;
 
@@ -776,9 +806,154 @@ function renderChat(roomId, space) {
   });
 
   html += `</div>`;
+  html += `<div class="chat-files-view" id="filesView" ${currentTab!=='files'?'style="display:none"':''}></div>`;
+  html += `<div class="chat-links-view" id="linksView" ${currentTab!=='links'?'style="display:none"':''}></div>`;
+
   chatArea.innerHTML = html;
   const c = document.getElementById('msgContainer');
   if (c) c.scrollTop = c.scrollHeight;
+
+  if (currentTab === 'files') renderFilesView();
+  if (currentTab === 'links') renderLinksView();
+}
+
+function showTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.chat-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+  const msgContainer = document.getElementById('msgContainer');
+  const filesView = document.getElementById('filesView');
+  const linksView = document.getElementById('linksView');
+  const chatSearchBar = document.getElementById('chatSearchBar');
+  const searchBtn = document.getElementById('chatSearchToggleBtn');
+
+  if (msgContainer) msgContainer.style.display = tab === 'messages' ? '' : 'none';
+  if (filesView) filesView.style.display = tab === 'files' ? '' : 'none';
+  if (linksView) linksView.style.display = tab === 'links' ? '' : 'none';
+  if (chatSearchBar && tab !== 'messages') chatSearchBar.style.display = 'none';
+  if (searchBtn) searchBtn.style.display = tab === 'messages' ? '' : 'none';
+
+  if (tab === 'files') renderFilesView();
+  if (tab === 'links') renderLinksView();
+}
+
+function renderFilesView() {
+  const container = document.getElementById('filesView');
+  if (!container || !currentRoomId) return;
+  const msgs = roomCache[currentRoomId]?.messages || [];
+  const imgExts = new Set(['jpg','jpeg','png','gif','webp','bmp','svg']);
+  const fileIcon = ext => {
+    const e = (ext||'').toLowerCase();
+    if (imgExts.has(e)) return '🖼️';
+    if (e === 'pdf') return '📄';
+    if (['doc','docx'].includes(e)) return '📝';
+    if (['xls','xlsx'].includes(e)) return '📊';
+    if (['ppt','pptx'].includes(e)) return '📊';
+    if (['zip','rar','7z'].includes(e)) return '📦';
+    if (['mp4','mov','avi','mkv','webm'].includes(e)) return '🎬';
+    if (['mp3','wav','m4a','aac'].includes(e)) return '🎵';
+    return '📎';
+  };
+
+  const files = [];
+  for (const m of msgs) {
+    const urls = m.files || [];
+    const locals = m.localFiles || localFilesMap[m.id] || [];
+    for (let i = 0; i < urls.length; i++) {
+      const local = locals[i];
+      const isFailed = local === 'FAILED';
+      const name = (local && !isFailed) ? local.split('/').pop() : `첨부파일 ${i+1}`;
+      const ext = name.split('.').pop().toLowerCase();
+      files.push({ name, ext, local: isFailed ? null : (local || null), msg: m });
+    }
+  }
+
+  if (!files.length) {
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:#57606a;font-size:14px;">공유된 파일이 없습니다.</div>';
+    return;
+  }
+
+  files.reverse();
+  let html = '';
+  for (const f of files) {
+    const sender = f.msg.personDisplayName || peopleCache[f.msg.personId] || 'Unknown';
+    const date = fmtDate(f.msg.created) + ' ' + fmtTime(f.msg.created);
+    const icon = fileIcon(f.ext);
+    const isImg = imgExts.has(f.ext);
+
+    if (f.local) {
+      const href = LOCAL_SERVER + '/' + f.local.replace(/\\/g, '/');
+      if (isImg) {
+        html += `<div class="file-card" onclick="window.open('${esc(href)}','_blank')">
+          <img class="file-card-thumb" src="${esc(href)}" alt="" onerror="this.style.display='none'">
+          <div class="file-card-info"><div class="file-card-name">${esc(f.name)}</div><div class="file-card-meta">${esc(sender)} · ${date}</div></div>
+          <span class="file-card-status" style="color:#2da44e">✅ 저장됨</span>
+        </div>`;
+      } else {
+        const revealUrl = LOCAL_SERVER + '/reveal/' + f.local.replace(/\\/g, '/');
+        html += `<div class="file-card" onclick="fetch('${esc(revealUrl)}').catch(()=>{})">
+          <span class="file-card-icon">${icon}</span>
+          <div class="file-card-info"><div class="file-card-name">${esc(f.name)}</div><div class="file-card-meta">${esc(sender)} · ${date}</div></div>
+          <span class="file-card-status" style="color:#2da44e">✅ 저장됨</span>
+        </div>`;
+      }
+    } else {
+      html += `<div class="file-card" style="cursor:default;opacity:0.8">
+        <span class="file-card-icon">${icon}</span>
+        <div class="file-card-info"><div class="file-card-name">${esc(f.name)}</div><div class="file-card-meta">${esc(sender)} · ${date}</div></div>
+        <span class="file-card-status" style="color:#f0883e">⚠️ 미저장</span>
+      </div>`;
+    }
+  }
+  container.innerHTML = html;
+}
+
+function renderLinksView() {
+  const container = document.getElementById('linksView');
+  if (!container || !currentRoomId) return;
+  const msgs = roomCache[currentRoomId]?.messages || [];
+
+  const urlRegex = /https?:\/\/[^\s<>"'()\[\]{}]+/g;
+  const links = [];
+
+  for (const m of msgs) {
+    const seen = new Set();
+    if (m.html) {
+      try {
+        const doc = new DOMParser().parseFromString(m.html, 'text/html');
+        doc.querySelectorAll('a[href]').forEach(a => {
+          const href = a.getAttribute('href');
+          if (href && href.startsWith('http') && !seen.has(href)) {
+            seen.add(href); links.push({ url: href, msg: m });
+          }
+        });
+      } catch {}
+    }
+    if (m.text) {
+      const matches = m.text.match(urlRegex) || [];
+      for (const u of matches) {
+        if (!seen.has(u)) { seen.add(u); links.push({ url: u, msg: m }); }
+      }
+    }
+  }
+
+  if (!links.length) {
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:#57606a;font-size:14px;">공유된 링크가 없습니다.</div>';
+    return;
+  }
+
+  links.reverse();
+  let html = '';
+  for (const l of links) {
+    const sender = l.msg.personDisplayName || peopleCache[l.msg.personId] || 'Unknown';
+    const date = fmtDate(l.msg.created) + ' ' + fmtTime(l.msg.created);
+    const context = (l.msg.text || '').trim().replace(urlRegex, '').trim().slice(0, 60);
+    html += `<div class="link-card">
+      <a href="${esc(l.url)}" target="_blank" rel="noopener" class="link-card-url">🔗 ${esc(l.url)}</a>
+      ${context ? `<div class="link-card-context">${esc(context)}</div>` : ''}
+      <div class="link-card-meta">${esc(sender)} · ${date}</div>
+    </div>`;
+  }
+  container.innerHTML = html;
 }
 
 function renderMsgGroup(msg, replies) {
