@@ -150,6 +150,12 @@ mark.search-hl.current { background: #f0a500; color: #000; }
 .chat-search-toggle { padding: 4px 8px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #57606a; cursor: pointer; font-size: 14px; }
 .chat-search-toggle:hover { border-color: #d0d7de; color: #1f2328; }
 
+/* ── 백업 로딩 프로그레스바 ── */
+.backup-loading-bar { height: 28px; background: #f0f6ff; border-bottom: 1px solid #d0d7de; display: flex; align-items: center; gap: 10px; padding: 0 14px; position: relative; overflow: hidden; flex-shrink: 0; transition: opacity 0.4s; }
+.backup-loading-bar.hidden { display: none; }
+.backup-loading-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #0969da 0%, #54aeff 100%); opacity: 0.18; transition: width 0.4s ease; pointer-events: none; }
+.backup-loading-text { font-size: 11px; color: #0969da; position: relative; z-index: 1; white-space: nowrap; }
+
 /* ── 백업 모달 ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
 .modal { background: #ffffff; border: 1px solid #d0d7de; border-radius: 12px; padding: 28px; width: 480px; max-width: 90vw; }
@@ -204,6 +210,10 @@ mark.search-hl.current { background: #f0a500; color: #000; }
       <span style="font-size:10px;color:#57606a;white-space:nowrap;">📁 첨부파일 경로: ~/Desktop/webex_backup/files/</span>
       <button class="btn btn-outline" onclick="location.reload()" style="font-size:13px; padding:6px 14px;">← 나가기</button>
     </div>
+  </div>
+  <div id="backupLoadingBar" class="backup-loading-bar hidden">
+    <div id="backupLoadingFill" class="backup-loading-fill" style="width:0%"></div>
+    <span id="backupLoadingText" class="backup-loading-text">📦 백업 파일 로딩 중...</span>
   </div>
   <div class="main">
     <div class="sidebar">
@@ -276,34 +286,100 @@ async function revealFile(e, url) {
   } catch {}
 }
 
+function _updateBackupBar(received, total, rate) {
+  const bar  = document.getElementById('backupLoadingBar');
+  const fill = document.getElementById('backupLoadingFill');
+  const txt  = document.getElementById('backupLoadingText');
+  if (!bar) return;
+  bar.classList.remove('hidden');
+  const mb = n => (n / 1048576).toFixed(1);
+  const pct = total ? Math.min(99, received / total * 100) : 0;
+  fill.style.width = pct + '%';
+  let timeStr = '';
+  if (total && rate > 0) {
+    const secLeft = Math.round((total - received) / rate);
+    if (secLeft > 1) timeStr = ` — 약 ${secLeft}초 남음`;
+  }
+  const sizeStr = total
+    ? `${mb(received)} / ${mb(total)} MB`
+    : `${mb(received)} MB`;
+  txt.textContent = `📦 백업 파일 로딩 중 — ${sizeStr}${timeStr}`;
+}
+
 async function loadLocalBackup() {
   try {
-    const bk = await fetch(LOCAL_SERVER + '/local-backup.json').then(r => r.json());
+    const resp = await fetch(LOCAL_SERVER + '/local-backup.json');
+    if (!resp.ok) return;
+
+    const total = parseInt(resp.headers.get('content-length') || '0', 10);
+    const reader = resp.body.getReader();
+    const chunks = [];
+    let received = 0;
+    const startTime = Date.now();
+
+    _updateBackupBar(0, total, 0);
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      const elapsed = (Date.now() - startTime) / 1000 || 0.001;
+      _updateBackupBar(received, total, received / elapsed);
+    }
+
+    // 파싱
+    const bk = JSON.parse(new TextDecoder().decode(
+      new Uint8Array(chunks.reduce((acc, c) => { const r = new Uint8Array(acc.length + c.length); r.set(acc); r.set(c, acc.length); return r; }, new Uint8Array(0)))
+    ));
+
+    // 프로그레스바 완료 표시 후 숨김
+    const fillEl = document.getElementById('backupLoadingFill');
+    const txtEl  = document.getElementById('backupLoadingText');
+    if (fillEl) fillEl.style.width = '100%';
+    if (txtEl)  txtEl.textContent = `✅ 백업 로딩 완료 (${(received/1048576).toFixed(1)} MB)`;
+    setTimeout(() => document.getElementById('backupLoadingBar')?.classList.add('hidden'), 1500);
+
     if (!bk || !Array.isArray(bk.spaces)) return;
-    // 사람 이름 캐시 채우기 (백업 메시지 발신자 이름 표시용)
+
+    // 사람 이름 캐시
     if (bk.people) {
       for (const [id, name] of Object.entries(bk.people)) {
         if (!peopleCache[id]) peopleCache[id] = name;
       }
     }
-    let cnt = 0;
+
+    // 인덱스 구축
+    let msgCnt = 0;
     for (const sp of bk.spaces) {
       if (sp.messages?.length) backupMsgIndex[sp.id] = sp.messages;
       for (const m of sp.messages || []) {
-        if (m.localFiles && m.localFiles.some(p => p)) {
-          localFilesMap[m.id] = m.localFiles;
-          cnt++;
-        }
+        msgCnt++;
+        if (m.localFiles && m.localFiles.some(p => p)) localFilesMap[m.id] = m.localFiles;
       }
     }
-    if (cnt) {
-      console.log(`[loadLocalBackup] ${cnt}개 메시지 첨부파일 경로 로드됨`);
-      if (currentRoomId && roomCache[currentRoomId]) {
-        const space = allSpaces.find(s => s.id === currentRoomId) || {};
-        renderChat(currentRoomId, space);
-      }
+    console.log(`[loadLocalBackup] ${msgCnt}개 메시지 인덱싱 완료`);
+
+    // 이미 열린 스페이스에 백업 메시지 병합
+    for (const spaceId of Object.keys(backupMsgIndex)) {
+      if (!roomCache[spaceId]) continue;
+      const existing = new Set(roomCache[spaceId].messages.map(m => m.id));
+      const backupOnly = backupMsgIndex[spaceId].filter(m => !existing.has(m.id));
+      if (!backupOnly.length) continue;
+      roomCache[spaceId].messages = [...backupOnly, ...roomCache[spaceId].messages]
+        .sort((a,b) => (a.created||'').localeCompare(b.created||''));
+      roomCache[spaceId].hasMore = false;
     }
-  } catch {}
+
+    // 현재 열린 채팅 재렌더
+    if (currentRoomId && roomCache[currentRoomId]) {
+      const space = allSpaces.find(s => s.id === currentRoomId) || {};
+      renderChat(currentRoomId, space);
+    }
+  } catch(e) {
+    document.getElementById('backupLoadingBar')?.classList.add('hidden');
+    console.warn('[loadLocalBackup] 오류:', e);
+  }
 }
 
 // ── API ───────────────────────────────────────────────────────────
