@@ -1,6 +1,27 @@
 #!/usr/bin/env python3
-import http.server, urllib.request, urllib.parse, os, sys, mimetypes, subprocess
+import http.server, urllib.request, urllib.parse, os, sys, mimetypes, subprocess, threading, time
 from pathlib import Path
+
+VERSION = 'v1.2.5'
+_GITHUB_RAW = 'https://raw.githubusercontent.com/danny-201801/webex/main/index.html'
+
+def _auto_update_index():
+    """서버 시작 시 GitHub에서 최신 index.html 자동 다운로드"""
+    try:
+        with urllib.request.urlopen(_GITHUB_RAW, timeout=10) as resp:
+            latest = resp.read()
+        # exe면 실행파일 옆 폴더, 아니면 스크립트 옆 폴더에 저장
+        if getattr(sys, 'frozen', False):
+            target = Path(sys.executable).parent / 'index.html'
+        else:
+            target = Path(__file__).parent / 'index.html'
+        if not target.exists() or target.read_bytes() != latest:
+            target.write_bytes(latest)
+            print('✅ UI 자동 업데이트 완료 (index.html)')
+    except Exception:
+        pass  # 오프라인이어도 기존 파일로 정상 동작
+
+threading.Thread(target=_auto_update_index, daemon=True).start()
 
 BACKUP_DIR = Path.home() / "Desktop" / "webex_backup"
 
