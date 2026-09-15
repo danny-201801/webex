@@ -254,6 +254,7 @@ let allSpaces = [], filtered = [];
 let peopleCache = {};
 let currentRoomId = null;
 let roomCache = {};
+let backupMsgIndex = {};  // spaceId → messages[], 백업 기반 전체 검색용
 let isLiveMode = true;
 let backupCancelled = false;
 let localFilesMap = {}; // messageId → localFiles[]
@@ -280,6 +281,7 @@ async function loadLocalBackup() {
     if (!bk || !Array.isArray(bk.spaces)) return;
     let cnt = 0;
     for (const sp of bk.spaces) {
+      if (sp.messages?.length) backupMsgIndex[sp.id] = sp.messages;
       for (const m of sp.messages || []) {
         if (m.localFiles && m.localFiles.some(p => p)) {
           localFilesMap[m.id] = m.localFiles;
@@ -456,7 +458,7 @@ function filterSpaces() {
     if ((s.title||'').toLowerCase().includes(q)) {
       filtered.push({ ...s, _snippet: null }); continue;
     }
-    const msgs = roomCache[s.id]?.messages || [];
+    const msgs = roomCache[s.id]?.messages?.length ? roomCache[s.id].messages : (backupMsgIndex[s.id] || []);
     let found = false;
     for (const m of msgs) {
       const text = (m.text||'').toLowerCase();
