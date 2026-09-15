@@ -280,6 +280,12 @@ async function loadLocalBackup() {
   try {
     const bk = await fetch(LOCAL_SERVER + '/local-backup.json').then(r => r.json());
     if (!bk || !Array.isArray(bk.spaces)) return;
+    // 사람 이름 캐시 채우기 (백업 메시지 발신자 이름 표시용)
+    if (bk.people) {
+      for (const [id, name] of Object.entries(bk.people)) {
+        if (!peopleCache[id]) peopleCache[id] = name;
+      }
+    }
     let cnt = 0;
     for (const sp of bk.spaces) {
       if (sp.messages?.length) backupMsgIndex[sp.id] = sp.messages;
@@ -531,6 +537,17 @@ async function openSpace(roomId) {
     <div class="loading"><div class="spinner"></div> 메시지 불러오는 중...</div>`;
   try {
     if (!roomCache[roomId]) await loadMessages(roomId, null);
+    // 백업 메시지 자동 병합 (API에 없는 과거 메시지 포함)
+    const backupMsgs = backupMsgIndex[roomId];
+    if (backupMsgs?.length) {
+      const existing = new Set(roomCache[roomId].messages.map(m => m.id));
+      const backupOnly = backupMsgs.filter(m => !existing.has(m.id));
+      if (backupOnly.length) {
+        roomCache[roomId].messages = [...backupOnly, ...roomCache[roomId].messages]
+          .sort((a,b) => (a.created||'').localeCompare(b.created||''));
+        roomCache[roomId].hasMore = false;  // 백업으로 전체 커버
+      }
+    }
     renderChat(roomId, space);
 
     // 현재 스페이스 참여자 ID 수집 → 폴링 시작
