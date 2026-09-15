@@ -7,124 +7,125 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e2235; color: #e8eaf0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f6f8fa; color: #1f2328; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
 /* ── 로그인 ── */
 #loginScreen { display: flex; align-items: center; justify-content: center; flex: 1; gap: 20px; flex-wrap: wrap; padding: 20px; }
-.login-box { background: #262c42; border: 1px solid #44506e; border-radius: 12px; padding: 32px; width: 400px; }
-.login-box h2 { color: #e1e4e8; font-size: 1.1em; margin-bottom: 6px; }
-.login-box p { color: #8b949e; font-size: 12px; margin-bottom: 18px; line-height: 1.5; }
-.login-box p a { color: #58a6ff; text-decoration: none; }
+.login-box { background: #ffffff; border: 1px solid #d0d7de; border-radius: 12px; padding: 32px; width: 400px; }
+.login-box h2 { color: #1f2328; font-size: 1.1em; margin-bottom: 6px; }
+.login-box p { color: #57606a; font-size: 12px; margin-bottom: 18px; line-height: 1.5; }
+.login-box p a { color: #0969da; text-decoration: none; }
 .login-box input[type="password"], .login-box input[type="text"] {
-  width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #44506e;
-  background: #1e2235; color: #e1e4e8; font-size: 14px; outline: none; margin-bottom: 10px; }
-.login-box input:focus { border-color: #58a6ff; }
+  width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #d0d7de;
+  background: #f6f8fa; color: #1f2328; font-size: 14px; outline: none; margin-bottom: 10px; }
+.login-box input:focus { border-color: #0969da; }
 .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.btn:disabled { background: #333c5a !important; color: #606880 !important; cursor: not-allowed; }
-.btn-green { background: #238636; color: #fff; width: 100%; }
+.btn:disabled { background: #eef0f4 !important; color: #57606a !important; cursor: not-allowed; }
+.btn-green { background: #2da44e; color: #fff; width: 100%; }
 .btn-green:hover:not(:disabled) { background: #2ea043; }
 .btn-blue { background: #1f6feb; color: #fff; width: 100%; }
 .btn-blue:hover:not(:disabled) { background: #388bfd; }
-.btn-outline { background: transparent; border: 1px solid #44506e; color: #8b949e; }
-.btn-outline:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
+.btn-outline { background: transparent; border: 1px solid #d0d7de; color: #57606a; }
+.btn-outline:hover:not(:disabled) { border-color: #0969da; color: #0969da; }
 .btn-red { background: #da3633; color: #fff; }
 .btn-red:hover:not(:disabled) { background: #f85149; }
-.divider { text-align: center; color: #606880; font-size: 12px; margin: 8px 0; }
+.divider { text-align: center; color: #57606a; font-size: 12px; margin: 8px 0; }
 .login-error { color: #f85149; font-size: 12px; margin-top: 8px; }
 .hidden { display: none !important; }
-.file-drop { border: 2px dashed #44506e; border-radius: 8px; padding: 24px; text-align: center; color: #8b949e; font-size: 13px; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; }
-.file-drop:hover { border-color: #58a6ff; color: #58a6ff; }
+.file-drop { border: 2px dashed #d0d7de; border-radius: 8px; padding: 24px; text-align: center; color: #57606a; font-size: 13px; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; }
+.file-drop:hover { border-color: #0969da; color: #0969da; }
 
 /* ── 앱 ── */
 #appScreen { display: none; flex: 1; overflow: hidden; flex-direction: column; }
-.topbar { background: #262c42; border-bottom: 1px solid #44506e; padding: 0 16px; height: 50px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 10px; }
+.topbar { background: #ffffff; border-bottom: 1px solid #d0d7de; padding: 0 16px; height: 50px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 10px; }
 .topbar-left { display: flex; align-items: center; gap: 12px; }
-.topbar-title { color: #58a6ff; font-weight: 700; font-size: 1em; white-space: nowrap; }
-.topbar-user { color: #8b949e; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-title { color: #0969da; font-weight: 700; font-size: 1em; white-space: nowrap; }
+.topbar-user { color: #57606a; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mode-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
-.mode-live { background: #143020; color: #3fb950; border: 1px solid #238636; }
-.mode-offline { background: #1a3a70; color: #58a6ff; border: 1px solid #1f6feb; }
+.mode-live { background: #dafbe1; color: #2da44e; border: 1px solid #2da44e; }
+.mode-offline { background: #ddf4ff; color: #0969da; border: 1px solid #1f6feb; }
 .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 .main { display: flex; flex: 1; overflow: hidden; }
 
 /* ── 사이드바 ── */
-.sidebar { width: 260px; flex-shrink: 0; background: #262c42; border-right: 1px solid #44506e; display: flex; flex-direction: column; }
-.sidebar-search { padding: 10px; border-bottom: 1px solid #44506e; }
-.sidebar-search input { width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #44506e; background: #1e2235; color: #e1e4e8; font-size: 13px; outline: none; }
-.sidebar-search input:focus { border-color: #58a6ff; }
+.sidebar { width: 260px; flex-shrink: 0; background: #ffffff; border-right: 1px solid #d0d7de; display: flex; flex-direction: column; }
+.sidebar-search { padding: 10px; border-bottom: 1px solid #d0d7de; }
+.sidebar-search input { width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #d0d7de; background: #f6f8fa; color: #1f2328; font-size: 13px; outline: none; }
+.sidebar-search input:focus { border-color: #0969da; }
 .space-list { flex: 1; overflow-y: auto; }
 .space-list::-webkit-scrollbar { width: 5px; }
-.space-list::-webkit-scrollbar-thumb { background: #44506e; border-radius: 3px; }
-.space-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #333c5a; transition: background 0.12s; }
-.space-item:hover { background: #2d3450; }
-.space-item.active { background: #1c3470; border-left: 3px solid #58a6ff; }
+.space-list::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 3px; }
+.space-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #eef0f4; transition: background 0.12s; }
+.space-item:hover { background: #f3f4f6; }
+.space-item.active { background: #dbeafe; border-left: 3px solid #0969da; }
 .space-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.space-item-meta { font-size: 11px; color: #8b949e; margin-top: 3px; display: flex; justify-content: space-between; }
-.space-tag { background: #333c5a; padding: 1px 6px; border-radius: 4px; }
+.space-item-meta { font-size: 11px; color: #57606a; margin-top: 3px; display: flex; justify-content: space-between; }
+.space-tag { background: #eef0f4; padding: 1px 6px; border-radius: 4px; }
 
 /* ── 채팅 ── */
 .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.chat-header { padding: 12px 18px; border-bottom: 1px solid #44506e; background: #262c42; flex-shrink: 0; }
+.chat-header { padding: 12px 18px; border-bottom: 1px solid #d0d7de; background: #ffffff; flex-shrink: 0; }
 .chat-header h2 { font-size: 15px; font-weight: 600; }
-.chat-header p { font-size: 12px; color: #8b949e; margin-top: 2px; }
+.chat-header p { font-size: 12px; color: #57606a; margin-top: 2px; }
 .chat-messages { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 2px; }
 .chat-messages::-webkit-scrollbar { width: 6px; }
-.chat-messages::-webkit-scrollbar-thumb { background: #44506e; border-radius: 3px; }
+.chat-messages::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 3px; }
 .date-sep { text-align: center; margin: 14px 0 6px; position: relative; }
-.date-sep span { background: #333c5a; color: #8b949e; font-size: 11px; padding: 3px 12px; border-radius: 10px; position: relative; z-index: 1; }
-.date-sep::before { content:''; position: absolute; left:0; right:0; top:50%; height:1px; background:#44506e; }
+.date-sep span { background: #eef0f4; color: #57606a; font-size: 11px; padding: 3px 12px; border-radius: 10px; position: relative; z-index: 1; }
+.date-sep::before { content:''; position: absolute; left:0; right:0; top:50%; height:1px; background:#d0d7de; }
 .msg-group { display: flex; flex-direction: column; margin-bottom: 6px; }
 .msg-group.me { align-items: flex-end; }
 .msg-group.other { align-items: flex-start; }
-.msg-sender { font-size: 12px; font-weight: 600; color: #c9d1d9; margin-bottom: 3px; padding: 0 4px; }
-.msg-sender-time { font-size: 11px; font-weight: 400; color: #6e7681; margin-left: 8px; }
+.msg-sender { font-size: 12px; font-weight: 600; color: #24292f; margin-bottom: 3px; padding: 0 4px; }
+.msg-sender-time { font-size: 11px; font-weight: 400; color: #57606a; margin-left: 8px; }
 .reaction-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; padding: 0 4px; }
-.reaction-chip { background: #333c5a; border: 1px solid #44506e; border-radius: 12px; padding: 2px 9px; font-size: 13px; color: #c9d1d9; cursor: default; display: inline-flex; align-items: center; gap: 4px; }
-.reaction-chip:hover { background: #44506e; border-color: #58a6ff; }
+.reaction-chip { background: #eef0f4; border: 1px solid #d0d7de; border-radius: 12px; padding: 2px 9px; font-size: 13px; color: #24292f; cursor: default; display: inline-flex; align-items: center; gap: 4px; }
+.reaction-chip:hover { background: #d0d7de; border-color: #0969da; }
 .bubble { max-width: 65%; padding: 8px 12px; border-radius: 16px; font-size: 14px; line-height: 1.5; word-break: break-word; }
-.msg-group.me .bubble { background: #2560b0; color: #e1e4e8; border-bottom-right-radius: 4px; }
-.msg-group.other .bubble { background: #333c5a; color: #e1e4e8; border-bottom-left-radius: 4px; }
-.bubble code { background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; }
-.bubble pre { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 4px 0; }
-.bubble a { color: #58a6ff; }
+.msg-group.me .bubble { background: #0969da; color: #ffffff; border-bottom-right-radius: 4px; }
+.msg-group.other .bubble { background: #eef0f4; color: #1f2328; border-bottom-left-radius: 4px; }
+.bubble code { background: rgba(0,0,0,0.08); padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+.bubble pre { background: rgba(0,0,0,0.08); padding: 8px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 4px 0; }
+.bubble a { color: #0969da; }
+.msg-group.me .bubble a { color: #aedcff; }
 .bubble strong { font-weight: 600; }
-.bubble blockquote { border-left: 3px solid #606880; padding-left: 8px; color: #8b949e; margin: 4px 0; }
-.msg-time { font-size: 10px; color: #606880; margin-top: 2px; padding: 0 4px; }
+.bubble blockquote { border-left: 3px solid #57606a; padding-left: 8px; color: #57606a; margin: 4px 0; }
+.msg-time { font-size: 10px; color: #57606a; margin-top: 2px; padding: 0 4px; }
 .msg-group.me .msg-time { text-align: right; }
-.attach-tag { font-size: 11px; color: #8b949e; margin-top: 3px; padding: 0 4px; }
+.attach-tag { font-size: 11px; color: #57606a; margin-top: 3px; padding: 0 4px; }
 .msg-group.me .attach-tag { text-align: right; }
 .attach-list { margin-top: 5px; display: flex; flex-direction: column; gap: 3px; }
 .attach-item { font-size: 12px; display: flex; align-items: center; gap: 6px; }
-.attach-name { color: #8b949e; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attach-saved { color: #3fb950; font-size: 11px; }
+.attach-name { color: #57606a; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-saved { color: #2da44e; font-size: 11px; }
 .attach-notsaved { color: #f0883e; font-size: 11px; }
-.attach-name-link { color: #58a6ff; text-decoration: none; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-name-link { color: #0969da; text-decoration: none; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attach-name-link:hover { text-decoration: underline; }
 .attach-item-img { flex-direction: column; align-items: flex-start; gap: 4px; }
 .attach-thumb { max-width: 200px; max-height: 150px; border-radius: 6px; display: block; cursor: pointer; }
-.thread-wrap { margin-top: 4px; padding-left: 10px; border-left: 2px solid #44506e; display: flex; flex-direction: column; gap: 3px; }
-.msg-group.me .thread-wrap { padding-left: 0; padding-right: 10px; border-left: none; border-right: 2px solid #44506e; align-items: flex-end; }
-.load-more-btn { margin: 0 auto 12px; padding: 6px 18px; border-radius: 8px; border: 1px solid #44506e; background: transparent; color: #8b949e; font-size: 12px; cursor: pointer; }
-.load-more-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-.loading { display: flex; align-items: center; justify-content: center; flex: 1; color: #8b949e; font-size: 14px; gap: 10px; }
-.spinner { width: 18px; height: 18px; border: 2px solid #44506e; border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+.thread-wrap { margin-top: 4px; padding-left: 10px; border-left: 2px solid #d0d7de; display: flex; flex-direction: column; gap: 3px; }
+.msg-group.me .thread-wrap { padding-left: 0; padding-right: 10px; border-left: none; border-right: 2px solid #d0d7de; align-items: flex-end; }
+.load-more-btn { margin: 0 auto 12px; padding: 6px 18px; border-radius: 8px; border: 1px solid #d0d7de; background: transparent; color: #57606a; font-size: 12px; cursor: pointer; }
+.load-more-btn:hover { border-color: #0969da; color: #0969da; }
+.loading { display: flex; align-items: center; justify-content: center; flex: 1; color: #57606a; font-size: 14px; gap: 10px; }
+.spinner { width: 18px; height: 18px; border: 2px solid #d0d7de; border-top-color: #0969da; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.empty-chat { display: flex; align-items: center; justify-content: center; flex: 1; color: #606880; font-size: 14px; flex-direction: column; gap: 8px; }
+.empty-chat { display: flex; align-items: center; justify-content: center; flex: 1; color: #57606a; font-size: 14px; flex-direction: column; gap: 8px; }
 
 /* ── 아바타 & 상태 ── */
-.avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #44506e; }
-.avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: #44506e; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #8b949e; flex-shrink: 0; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #d0d7de; }
+.avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: #d0d7de; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #57606a; flex-shrink: 0; }
 .avatar-wrap { position: relative; flex-shrink: 0; }
-.status-dot { position: absolute; bottom: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #1e2235; }
-.status-active   { background: #3fb950; }
-.status-inactive { background: #8b949e; }
+.status-dot { position: absolute; bottom: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #f6f8fa; }
+.status-active   { background: #2da44e; }
+.status-inactive { background: #57606a; }
 .status-dnd      { background: #f85149; }
 .status-ooo      { background: #f0883e; }
 .status-quiet    { background: #a371f7; }
-.sidebar-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #44506e; }
-.sidebar-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: #333c5a; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #8b949e; flex-shrink: 0; }
-.space-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #333c5a; transition: background 0.12s; display: flex; align-items: center; gap: 10px; }
+.sidebar-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #d0d7de; }
+.sidebar-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: #eef0f4; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #57606a; flex-shrink: 0; }
+.space-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eef0f4; transition: background 0.12s; display: flex; align-items: center; gap: 10px; }
 .space-item-info { flex: 1; min-width: 0; }
 .msg-group.other { flex-direction: row; align-items: flex-start; gap: 8px; max-width: 75%; }
 .msg-group.other .msg-content { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
@@ -135,28 +136,28 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e2235; 
 .empty-chat .icon { font-size: 36px; opacity: 0.3; }
 
 /* ── 검색 ── */
-.space-item-snippet { font-size: 11px; color: #6e7681; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.space-item-snippet mark { background: transparent; color: #f0a500; font-style: normal; }
-.chat-search-bar { display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: #1e2235; border-bottom: 1px solid #44506e; flex-shrink: 0; }
-.chat-search-bar input { flex: 1; padding: 5px 10px; border-radius: 8px; border: 1px solid #44506e; background: #262c42; color: #e1e4e8; font-size: 13px; outline: none; }
-.chat-search-bar input:focus { border-color: #58a6ff; }
-.chat-search-nav { font-size: 11px; color: #6e7681; white-space: nowrap; min-width: 56px; text-align: right; }
-.chat-search-btn { padding: 3px 8px; border-radius: 6px; border: 1px solid #44506e; background: transparent; color: #8b949e; cursor: pointer; font-size: 12px; line-height: 1; }
-.chat-search-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-mark.search-hl { background: #3d2e00; color: #f0a500; border-radius: 2px; font-style: normal; }
+.space-item-snippet { font-size: 11px; color: #57606a; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.space-item-snippet mark { background: transparent; color: #92400e; font-style: normal; }
+.chat-search-bar { display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: #f6f8fa; border-bottom: 1px solid #d0d7de; flex-shrink: 0; }
+.chat-search-bar input { flex: 1; padding: 5px 10px; border-radius: 8px; border: 1px solid #d0d7de; background: #ffffff; color: #1f2328; font-size: 13px; outline: none; }
+.chat-search-bar input:focus { border-color: #0969da; }
+.chat-search-nav { font-size: 11px; color: #57606a; white-space: nowrap; min-width: 56px; text-align: right; }
+.chat-search-btn { padding: 3px 8px; border-radius: 6px; border: 1px solid #d0d7de; background: transparent; color: #57606a; cursor: pointer; font-size: 12px; line-height: 1; }
+.chat-search-btn:hover { border-color: #0969da; color: #0969da; }
+mark.search-hl { background: #fef9c3; color: #92400e; border-radius: 2px; font-style: normal; }
 mark.search-hl.current { background: #f0a500; color: #000; }
 .chat-header-row { display: flex; align-items: center; justify-content: space-between; }
-.chat-search-toggle { padding: 4px 8px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #6e7681; cursor: pointer; font-size: 14px; }
-.chat-search-toggle:hover { border-color: #44506e; color: #e1e4e8; }
+.chat-search-toggle { padding: 4px 8px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #57606a; cursor: pointer; font-size: 14px; }
+.chat-search-toggle:hover { border-color: #d0d7de; color: #1f2328; }
 
 /* ── 백업 모달 ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal { background: #262c42; border: 1px solid #44506e; border-radius: 12px; padding: 28px; width: 480px; max-width: 90vw; }
-.modal h3 { font-size: 1em; margin-bottom: 16px; color: #e1e4e8; }
-.progress-bar { width: 100%; height: 6px; background: #333c5a; border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
-.progress-fill { height: 100%; background: linear-gradient(90deg,#1f6feb,#58a6ff); transition: width 0.3s; width: 0%; }
-.progress-text { font-size: 13px; color: #8b949e; text-align: center; margin-bottom: 6px; }
-.progress-detail { font-size: 11px; color: #606880; text-align: center; min-height: 16px; }
+.modal { background: #ffffff; border: 1px solid #d0d7de; border-radius: 12px; padding: 28px; width: 480px; max-width: 90vw; }
+.modal h3 { font-size: 1em; margin-bottom: 16px; color: #1f2328; }
+.progress-bar { width: 100%; height: 6px; background: #eef0f4; border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+.progress-fill { height: 100%; background: linear-gradient(90deg,#1f6feb,#0969da); transition: width 0.3s; width: 0%; }
+.progress-text { font-size: 13px; color: #57606a; text-align: center; margin-bottom: 6px; }
+.progress-detail { font-size: 11px; color: #57606a; text-align: center; min-height: 16px; }
 .modal-btns { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
 </style>
 </head>
@@ -196,11 +197,11 @@ mark.search-hl.current { background: #f0a500; color: #000; }
     <div class="topbar-right">
       <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
         <button class="btn btn-outline" id="backupBtn" onclick="document.getElementById('backupStartModal').classList.remove('hidden')" style="font-size:13px; padding:6px 14px;">⬇️ 대화/첨부 백업</button>
-        <span style="font-size:10px;color:#606880;">메시지·첨부파일 내보내기</span>
+        <span style="font-size:10px;color:#57606a;">메시지·첨부파일 내보내기</span>
       </div>
       <button class="btn btn-outline" onclick="document.getElementById('inAppFileInput').click()" style="font-size:13px; padding:6px 14px;">📂 백업 파일 열기</button>
       <input type="file" id="inAppFileInput" accept=".json" style="display:none" onchange="loadBackupInApp(event)">
-      <span style="font-size:10px;color:#606880;white-space:nowrap;">📁 첨부파일 경로: ~/Desktop/webex_backup/files/</span>
+      <span style="font-size:10px;color:#57606a;white-space:nowrap;">📁 첨부파일 경로: ~/Desktop/webex_backup/files/</span>
       <button class="btn btn-outline" onclick="location.reload()" style="font-size:13px; padding:6px 14px;">← 나가기</button>
     </div>
   </div>
@@ -226,7 +227,7 @@ mark.search-hl.current { background: #f0a500; color: #000; }
       <button class="btn btn-primary" onclick="pickPrevBackup(false)" style="width:100%">📂 증분 업데이트 (JSON)</button>
       <button class="btn btn-primary" onclick="pickPrevBackup(true)" style="width:100%;background:#1a5c2a;">📦 증분 업데이트 + 첨부파일 (ZIP)</button>
       <button class="btn btn-outline" onclick="startBackup(null, false)" style="width:100%">처음부터 전체 백업 (JSON)</button>
-      <button class="btn btn-outline" onclick="startBackup(null, true)" style="width:100%;border-color:#3fb950;color:#3fb950;">📦 처음부터 전체 백업 + 첨부파일 (ZIP)</button>
+      <button class="btn btn-outline" onclick="startBackup(null, true)" style="width:100%;border-color:#2da44e;color:#2da44e;">📦 처음부터 전체 백업 + 첨부파일 (ZIP)</button>
       <button class="btn btn-red" onclick="document.getElementById('backupStartModal').classList.add('hidden')" style="width:100%">취소</button>
     </div>
     <input type="file" id="prevBackupInput" accept=".json" style="display:none" onchange="onPrevBackupSelected(event)">
@@ -319,7 +320,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function setupFileDrop() {
   const drop = document.getElementById('fileDrop');
-  drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor='#58a6ff'; });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor='#0969da'; });
   drop.addEventListener('dragleave', () => { drop.style.borderColor=''; });
   drop.addEventListener('drop', e => {
     e.preventDefault(); drop.style.borderColor='';
