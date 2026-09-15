@@ -435,31 +435,11 @@ function clearChatHighlights() {
 }
 
 function _highlightInElement(root, q) {
-  const lower = q.toLowerCase();
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const nodes = [];
-  while (walker.nextNode()) nodes.push(walker.currentNode);
-  for (const node of nodes) {
-    const text = node.nodeValue;
-    if (!text) continue;
-    const ltext = text.toLowerCase();
-    if (!ltext.includes(lower)) continue;
-    const parent = node.parentNode;
-    if (!parent) continue;
-    const frag = document.createDocumentFragment();
-    let last = 0, idx = ltext.indexOf(lower);
-    while (idx >= 0) {
-      if (idx > last) frag.appendChild(document.createTextNode(text.slice(last, idx)));
-      const mark = document.createElement('mark');
-      mark.className = 'search-hl';
-      mark.textContent = text.slice(idx, idx + q.length);
-      frag.appendChild(mark);
-      last = idx + q.length;
-      idx = ltext.indexOf(lower, last);
-    }
-    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
-    parent.replaceChild(frag, node);
-  }
+  if (!root.innerHTML) return;
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // (?![^<]*>) : HTML 태그 속성 안에서는 매치하지 않음
+  const regex = new RegExp(`(${escaped})(?![^<]*>)`, 'gi');
+  root.innerHTML = root.innerHTML.replace(regex, '<mark class="search-hl">$1</mark>');
 }
 
 document.addEventListener('keydown', e => {
