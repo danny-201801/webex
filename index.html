@@ -462,16 +462,18 @@ function filterSpaces() {
     const msgs = roomCache[s.id]?.messages?.length ? roomCache[s.id].messages : (backupMsgIndex[s.id] || []);
     let found = false;
     for (const m of msgs) {
-      const text = (m.text||'').toLowerCase();
+      const rawText = m.text || '';
+      const rawHtml = m.html ? m.html.replace(/<[^>]*>/g, '') : '';
+      const combined = (rawText + (rawText && rawHtml ? ' ' : '') + rawHtml).toLowerCase();
       const fileNames = [...(m.localFiles||[])].map(f => (f||'').split('/').pop().toLowerCase()).join(' ');
-      const hit = text.indexOf(q);
+      const hit = combined.indexOf(q);
       const fileHit = fileNames.indexOf(q);
       if (hit >= 0 || fileHit >= 0) {
         let snippet;
         if (hit >= 0) {
-          const raw = m.text || '';
+          const raw = rawText || rawHtml;
           const s0 = Math.max(0, hit - 15);
-          snippet = (s0 > 0 ? '…' : '') + raw.slice(s0, hit) +
+          snippet = (s0 > 0 ? '…' : '') + esc(raw.slice(s0, hit)) +
             '<mark>' + esc(raw.slice(hit, hit + q.length)) + '</mark>' +
             esc(raw.slice(hit + q.length, hit + q.length + 30)) +
             (hit + q.length + 30 < raw.length ? '…' : '');
